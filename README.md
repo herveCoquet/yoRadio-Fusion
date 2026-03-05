@@ -296,6 +296,8 @@ and run the following commands:
 
 ⚠️ The first upload may take several minutes.
 
+**USE & ENJOY!**
+
 ---
 
 ### 10. Future Firmware Updates
@@ -312,8 +314,6 @@ on the Settings page, in the Update Firmware menu:
 <a href="https://github.com/user-attachments/assets/0ff3e556-5947-4564-b653-7c2d466fc426">
   <img src="https://github.com/user-attachments/assets/0ff3e556-5947-4564-b653-7c2d466fc426" width="400">
 </a>
-
-**USE & ENJOY!**
 
 ---
 
