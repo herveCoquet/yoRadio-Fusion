@@ -62,6 +62,10 @@ Install with default settings.
 
 During installation select: ***Git from the command line and also from 3rd-party software***
 
+<a href="https://github.com/user-attachments/assets/f785b709-42ab-462a-8a2a-07365c137898">
+  <img src="https://github.com/user-attachments/assets/f785b709-42ab-462a-8a2a-07365c137898" width="400">
+</a>
+
 ---
 
 ### 2. Install Python
@@ -72,6 +76,10 @@ https://www.python.org/downloads/
 Install with default settings.
 
 During installation enable: ***Add Python to PATH***
+
+<a href="https://github.com/user-attachments/assets/6ef444fd-642f-4256-a2ae-715526230ef9">
+  <img src="https://github.com/user-attachments/assets/6ef444fd-642f-4256-a2ae-715526230ef9" width="400">
+</a>
 
 ---
 
@@ -87,6 +95,8 @@ Install with default settings.
 ### 4. Install PlatformIO
 
 Open VSCode and install the PlatformIO IDE extension.
+
+Steps: VSCode → Extensions → search "PlatformIO IDE" → Install
 
 <a href="https://github.com/user-attachments/assets/a742fceb-4126-4d36-aa05-3f6ef462ba91">
   <img src="https://github.com/user-attachments/assets/a742fceb-4126-4d36-aa05-3f6ef462ba91" width="400">
@@ -231,6 +241,30 @@ depending on the selected hardware configuration.
 If you use **multiple hardware configurations**, multiple folders will appear inside **libdeps**, 
 and the **font modification must be applied in each of them**.
 
+### 3. Configure WiFi
+
+Navigate to the following folder:
+
+C:\platformio\yoRadio\data\data\
+
+Open the file:
+
+wifi.csv
+
+⚠️ Do not use Excel. 
+
+Open the file with **Notepad++** or directly in the **PlatformIO editor**.
+
+Replace the default values: 'yourssid yourpassword'
+
+with your own WiFi network credentials.  
+
+The SSID and password must be separated by a **TAB**.
+
+If you want to use the device in multiple locations, you can add additional WiFi networks on new lines.
+
+Save the file & close.
+
 ---
 
 ### 9. Build and Upload the Firmware
@@ -261,6 +295,8 @@ and run the following commands:
 
 ⚠️ The first upload may take several minutes.
 
+---
+
 ### 10. Future Firmware Updates
 
 For later updates you can simply use the **Upload icon** in PlatformIO.
@@ -276,7 +312,12 @@ on the Settings page, in the Update Firmware menu:
   <img src="https://github.com/user-attachments/assets/0ff3e556-5947-4564-b653-7c2d466fc426" width="400">
 </a>
 
+**USE & ENJOY!**
+
+---
+
 </details>
+
 
 <details>
 <summary>📦 Requirements</summary>
