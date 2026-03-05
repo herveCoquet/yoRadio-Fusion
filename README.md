@@ -65,7 +65,62 @@ https://github.com/e2002/yoradio
 <details>
 <summary>💻 Firmware Build</summary>
 
-PlatformIO build steps here...
+ ---
+
+Follow these steps to set up the development environment for **yoRadio**.
+
+### 1. Install Git
+
+Download and install Git for Windows:  
+https://git-scm.com/download/win
+
+Install with default settings.
+
+During installation select: ***Git from the command line and also from 3rd-party software***
+
+---
+
+### 2. Install Python
+
+Download Python:
+https://www.python.org/downloads/
+
+Install with default settings.
+
+During installation enable: ***Add Python to PATH***
+
+---
+
+### 3. Install Visual Studio Code
+
+Download VSCode:
+https://code.visualstudio.com/
+
+Install with default settings.
+
+---
+
+### 4. Install PlatformIO
+
+Open VSCode and install the PlatformIO IDE extension.
+<img width="1125" height="282" alt="2026-03-05_09-53-52" src="https://github.com/user-attachments/assets/a742fceb-4126-4d36-aa05-3f6ef462ba91" />
+
+After installation restart VSCode.
+<img width="1125" height="166" alt="2026-03-05_07-01-14" src="https://github.com/user-attachments/assets/7216e432-b2e5-4aba-afcd-fed0c00f2eba" />
+
+After restarting VSCode, wait until PlatformIO finishes installing the required toolchains and dependencies.
+
+---
+
+### 5. Download & unzip firmware
+
+
+
+
+
+
+
+
 
 </details>
 
