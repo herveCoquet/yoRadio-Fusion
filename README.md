@@ -61,7 +61,7 @@ https://github.com/e2002/yoradio
 ---
 
 ## 🚀 Getting Started
-<a name="subtop"></a>
+
 <details>
 <summary>💻 Firmware Installation</summary>
 
@@ -333,7 +333,7 @@ on the Settings page, in the Update Firmware menu:
   <img src="https://github.com/user-attachments/assets/0ff3e556-5947-4564-b653-7c2d466fc426" width="400">
 </a>
 
-[⬆ collapse](#-getting-started)
+[⬆ Collapse](#getting-started)
 
 ---
 
@@ -399,7 +399,7 @@ Online: https://vip-cxema.org/index.php/online-kalkulyatory/yoradio-redaktor-tem
 
 Offline: https://github.com/andrasdaradici/YoRadio-Theme-Editor/releases
 
-[⬆ Back to start](#subtop)
+[⬆ Collapse](#getting-started)
 
 </details>
 
