@@ -8,6 +8,18 @@ This project is based on **ёRadio v0.9.720** by e2002:
 https://github.com/e2002/yoradio  
 📌 *Reading the original documentation is strongly recommended.*
 
+## 📑 Table of Contents
+
+- [Features](#-features)
+- [Supported Hardware](#-supported-hardware)
+- [Firmware Installation](#firmware-installation)
+- [PlatformIO Setup Guide](#platformio-setup-guide)
+- [WiFi Configuration](#configure-wifi)
+- [Build and Upload Firmware](#build-and-upload-the-firmware)
+- [Web Interface](#web-interface)
+- [Useful Tools](#useful-tools)
+- [Credits](#credits)
+
 ---
 
 ## 🚀 Features
@@ -379,7 +391,6 @@ Online: https://vip-cxema.org/index.php/online-kalkulyatory/yoradio-redaktor-tem
 
 Offline: https://github.com/andrasdaradici/YoRadio-Theme-Editor/releases
 
----
 
 </details>
 
