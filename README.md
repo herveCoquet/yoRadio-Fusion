@@ -408,6 +408,45 @@ Offline: https://github.com/andrasdaradici/YoRadio-Theme-Editor/releases
 
 ## 📌 Version History / Changelog
 
+## v0.5.8 – 2026-03-06
+
+ • Added **Czech language** support (Thnx to: Miroslav Tlustý)
+ 
+ • Added **VU label indicator**
+ 
+ • Added **Simple Weather icon set**
+ 
+ • Added **scrollable playlist**
+ 
+ • Added **Backlight fading plugin**
+ 
+ • Added **Stall watchdog switch** (Thnx to: Andrzej Jaroszuk)
+
+ • Added a custom **Fusion logo** on bootscreen for all supported displays
+ 
+ • Added **encoder control for DLNA mode** (Web → DLNA → SD) (Thnx to: Scott Barber)
+ 
+ • **DLNA bug fixes** and improved DLNA server connection stability
+ 
+ • **WebUI player page** visual improvements (Thnx to: Scott Barber)
+ 
+ • **Imperial weather data display** improvements
+ 
+ • Updated **AudioI2S library** to version **3.4.4** (Thnx to: Tamás Várai)
+ 
+ • New features are now accessible from the **WebUI** (see the **Customize page** for detailed descriptions)
+ 
+ • **SDManager chaos resolved** – manual modification of SDManager files is no longer required
+ 
+ • **OTA partition layout** applied to support firmware updates via OTA
+
+ • Added **PlatformIO step-by-step installation guide**
+
+ • Custom Fusion logo graphic by Scott Barber
+ 
+ • Hardware descriptions and setup guides will be added **progressively as time allows**
+ 
+
 ## v0.4.4 – 2026-01-31
 
  • This build adds **DLNA playlist browsing and playback** support to yoRadio.
