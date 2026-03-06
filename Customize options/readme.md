@@ -182,6 +182,8 @@ Note: On **320×240 displays** only the first **two options** are available, as 
 
 <img width="530" src="https://github.com/user-attachments/assets/6f8eb0a8-58c0-4069-968d-8d3c8adec0cd" />
 
+<hr width="75%">
+
 2. **Show nameday**
 
 Enable or disable the display of the **current nameday**.
@@ -191,11 +193,15 @@ The nameday is displayed as a **scrolling text**.
 
 <img width="530" src="https://github.com/user-attachments/assets/5043de91-b756-4440-9405-e807aabd7a2f" />
 
+<hr width="75%">
+
 3. **Clock Font**
 
 The firmware includes **seven built-in clock fonts**.
 
 <img width="530" src="https://github.com/user-attachments/assets/eb5fcba0-8039-4b38-906e-4944582ab0e9" />
+
+<hr width="75%">
 
 4. **Meta Station Name Skip**
 
@@ -203,11 +209,15 @@ When enabled, the **station name** is taken from the **playlist entry** instead 
 
 <img width="530" src="https://github.com/user-attachments/assets/f3733ce3-34e0-495c-889b-4853563fc3f1" />
 
+<hr width="75%">
+
 5. **Short Weather Info**
 
 When enabled, weather information is displayed in a **short format without scrolling**.
 
 <img width="530" src="https://github.com/user-attachments/assets/dfccb6d6-81c3-4411-984b-ef9567ca5d70" />
+
+<hr width="75%">
 
 6. **Weather Icon Set**
 
@@ -215,6 +225,7 @@ The firmware includes **two built-in weather icon sets**.
 
 <img width="530" src="https://github.com/user-attachments/assets/25bd9c78-29ba-4492-a8fb-88db9627633b" />
 
+<hr width="75%">
 
 7. **Direct Channel Change**
 
@@ -224,11 +235,15 @@ without requiring an additional click or touch.
 
 <img width="530" src="https://github.com/user-attachments/assets/f7b0e940-faf7-40a2-89a9-3f8be9091be1" />
 
+<hr width="75%">
+
 8. **12 Hours Clock**
 
 Switches the clock display to **12-hour format**.
 
 <img width="530" src="https://github.com/user-attachments/assets/225b2f25-72cd-447d-9bc4-7f00a40d59a8" />
+
+<hr width="75%">
 
 9. **Moving Cursor Playlist Mode**
 
@@ -237,6 +252,8 @@ When enabled, the **cursor moves within the playlist**,
 and page scrolling occurs only when the cursor reaches the bottom of the list.
 
 <img width="530" src="https://github.com/user-attachments/assets/96cdb700-dce4-4449-9afa-cb52ce61fa9a" />
+
+<hr width="75%">
 
 10. **Stall Watchdog**
 
