@@ -341,11 +341,10 @@ on the Settings page, in the Update Firmware menu:
 
 
 <details>
-<summary>📦 Requirements</summary>
+<summary>📦 Hardware Requirements</summary>
 
-- ESP32-S3 board  
+- ESP32-S3 board with 4M, 8M, 16M flash memory  
 - PSRAM recommended  
-- PlatformIO
 
 </details>
 
