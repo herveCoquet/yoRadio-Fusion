@@ -409,7 +409,12 @@ Offline: https://github.com/andrasdaradici/YoRadio-Theme-Editor/releases
 ---
 
 ## 📌 Version History / Changelog
+## v0.5.9 – 2026-03-09
 
+ • Touchscreen.cpp **FT6x36** driver fix
+ 
+ • displayST7789_170conf_custom.h fix (Full bitrate icon placed in the wrong location)
+ 
 ## v0.5.8 – 2026-03-06
 
 **Full Erase Needed before upload!!**
