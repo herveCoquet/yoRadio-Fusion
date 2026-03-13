@@ -23,7 +23,7 @@ Adds NeoPixel ([WS2812B](https://www.aliexpress.com/item/2036819167.html)) LED s
 
 ### 1. Enable the plugin
 
-Add the following lines to your `options.h` (or board-specific config):
+Add the following lines to your `myoptions.h` (or board-specific config):
 
 ```cpp
 #define USE_LEDSTRIP_PLUGIN
