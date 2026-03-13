@@ -411,7 +411,7 @@ Offline: https://github.com/andrasdaradici/YoRadio-Theme-Editor/releases
 ## 📌 Version History / Changelog
 ## v0.6.1 – 2026-03-13
 
- • LED strip support with multiple visual effects. OTA update available, but [file upload order](https://github.com/SimZs/yoRadio-Fusion/tree/main/Ledstrip%20plugin#2-flash) is important 
+ • [LED strip](https://github.com/SimZs/yoRadio-Fusion/tree/main/Ledstrip%20plugin) support with multiple visual effects. OTA update available, but [file upload order](https://github.com/SimZs/yoRadio-Fusion/tree/main/Ledstrip%20plugin#2-flash) is important 
  
  • DLNA hardcoded IDX BUG fix
  
