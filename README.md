@@ -409,6 +409,12 @@ Offline: https://github.com/andrasdaradici/YoRadio-Theme-Editor/releases
 ---
 
 ## 📌 Version History / Changelog
+## v0.6.1 – 2026-03-13
+
+ • Ledstrip plugin
+ 
+ • DLNA hardcoded IDX BUG fix
+ 
 ## v0.5.9 – 2026-03-09
 
  • Touchscreen.cpp **FT6x36** driver fix
