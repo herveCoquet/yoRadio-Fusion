@@ -116,21 +116,21 @@ const char apSettFmt[] PROGMEM = "Radio disponibil la: HTTP://%s/";
 
 #if (DSP_MODEL == DSP_ILI9341) || (DSP_MODEL == DSP_ST7735) || (DSP_MODEL == DSP_ST7789) || (DSP_MODEL == DSP_ST7789_76)
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH %.1f km/h";
-#elif (DSP_MODEL == DSP_ST7789_240)
+  "%d hPa · %d%% RH · %.1f km/h";
+#elif (DSP_MODEL == DSP_ST7789_240) || DSP_MODEL!=DSP_GC9A01 || DSP_MODEL!=DSP_GC9A01A || DSP_MODEL!=DSP_GC9A01_I80
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH";
+  "%d hPa · %d%% RH";
 #else
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa \007 %d%% RH \007 %.1f km/h [%s]";
+  "%d hPa · %d%% RH · %.1f km/h [%s]";
 #endif
 
 #if EXT_WEATHER
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 resimțit: %.1f\011C \007 presiune: %d hPa \007 umiditate: %d%% \007 viteză vânt: %.1f km/h [%s]";
+  "%s, %.1f°C · resimțit: %.1f°C · presiune: %d hPa · umiditate: %d%% · viteză vânt: %.1f km/h [%s]";
 #else
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 %d hPa \007 %d%%";
+  "%s, %.1f°C · %d hPa · %d%%";
 #endif
 
 static inline const char* getWeatherFmt() {

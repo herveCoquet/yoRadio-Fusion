@@ -75,16 +75,20 @@ class TextWidget: public Widget {
     void setText(int val, const char *format);
     void setText(const char* txt, const char *format);
     bool uppercase() { return _uppercase; }
+    void setGfxFont(const GFXfont* f) { _gfxFont = f; }
   protected:
     char *_text;
     char *_oldtext;
     bool _uppercase;
     uint16_t  _buffsize, _textwidth, _oldtextwidth, _oldleft, _textheight;
     uint8_t _charWidth;
+    const GFXfont* _gfxFont = nullptr;
   protected:
     void _draw();
     uint16_t _realLeft(bool w_fb=false);
     void _charSize(uint8_t textsize, uint8_t& width, uint16_t& height);
+    uint16_t _measureText(const char* txt);
+    int16_t  _baselineY();
 };
 
 class FillWidget: public Widget {
@@ -123,6 +127,9 @@ class ScrollWidget: public TextWidget {
     uint8_t _charWidth;
     uint16_t _winLeft(bool fb = false) const;
     psFrameBuffer* _fb=nullptr;
+    /* pixel-alapú scroll support (FreeSans fontokhoz) */
+    uint16_t _pixelTextWidth(const char* txt);
+    void     _applyFont(Adafruit_GFX& gfx);
   private:
     void _setTextParams();
     void _calcX();
@@ -281,6 +288,41 @@ class BitrateWidget: public Widget {
     void _clear();
     void _charSize(uint8_t textsize, uint8_t& width, uint16_t& height);
 };
+/**
+ * StationNumWidget – outline box a sorszammal (mint BitrateWidget bal fele)
+ * PlayModeWidget   – filled box a moddal     (mint BitrateWidget jobb fele)
+ * Mindketto theme.bitrate szint hasznal.
+ */
+class StationNumWidget: public Widget {
+  public:
+    StationNumWidget() {}
+    StationNumWidget(StationNumConfig conf, uint16_t fgcolor, uint16_t bgcolor) { init(conf, fgcolor, bgcolor); }
+    ~StationNumWidget() {}
+    using Widget::init;
+    void init(StationNumConfig conf, uint16_t fgcolor, uint16_t bgcolor);
+    void setNum(uint16_t num);
+  protected:
+    uint16_t _dimension;
+    uint16_t _num;
+    void _draw();
+    void _clear();
+};
+
+class PlayModeWidget: public Widget {
+  public:
+    PlayModeWidget() {}
+    PlayModeWidget(PlayModeConfig conf, uint16_t fgcolor, uint16_t bgcolor) { init(conf, fgcolor, bgcolor); }
+    ~PlayModeWidget() {}
+    using Widget::init;
+    void init(PlayModeConfig conf, uint16_t fgcolor, uint16_t bgcolor);
+    void setMode(uint8_t mode);
+  protected:
+    uint16_t _dimension;
+    uint8_t  _mode;
+    void _draw();
+    void _clear();
+};
+
 class PlayListWidget: public Widget {
   public:
     using Widget::init;
@@ -329,6 +371,29 @@ public:
 
 private:
   bool _namedayEnabled = true;
+};
+
+class StatusWidget : public Widget {
+  public:
+    StatusWidget() {}
+    StatusWidget(StatusWidgetConfig conf, const char* label,
+                 uint16_t activecolor, uint16_t inactivecolor)
+      { init(conf, label, activecolor, inactivecolor); }
+    ~StatusWidget() {}
+    using Widget::init;
+    void init(StatusWidgetConfig conf, const char* label,
+              uint16_t activecolor, uint16_t inactivecolor);
+    // _statusActive tárolja a tényleges logikai állapotot (be/ki van-e kapcsolva a feature)
+    // Page::setActive(true)  → újrarajzol a tárolt állapottal
+    // Page::setActive(false) → nem csinál semmit (clearDsp úgyis törli)
+    // setStat(bool) → beállítja és rajzolja az állapotot
+    void setActive(bool act, bool clr=false) { if(act) _draw(); }
+    void setStat(bool stat) { _active = stat; _draw(); }
+  protected:
+    uint16_t _boxW, _boxH;
+    const char* _label;
+    void _draw();
+    void _clear();
 };
 
 class WeatherIconWidget : public Widget {

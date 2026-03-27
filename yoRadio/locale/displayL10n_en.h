@@ -118,30 +118,30 @@ const char        apSettFmt[]    PROGMEM = "SETTINGS PAGE ON: HTTP://%s/";
 
   #ifdef IMPERIALUNIT
   const char weatherFmtShort[] PROGMEM =
-    "%.2f inHg %d%% RH %.1f mph";
+    "%.2f inHg · %d%% RH · %.1f mph";
   #else
   const char weatherFmtShort[] PROGMEM =
-    "%d hPa %d%% RH %.1f km/h";
+    "%d hPa · %d%% RH · %.1f km/h";
   #endif
 
-#elif (DSP_MODEL == DSP_ST7789_240)
+#elif (DSP_MODEL == DSP_ST7789_240) || DSP_MODEL!=DSP_GC9A01 || DSP_MODEL!=DSP_GC9A01A || DSP_MODEL!=DSP_GC9A01_I80
 
   #ifdef IMPERIALUNIT
   const char weatherFmtShort[] PROGMEM =
-    "%.2f inHg %d%% RH";
+    "%.2f inHg · %d%% RH";
   #else
   const char weatherFmtShort[] PROGMEM =
-    "%d hPa %d%% RH";
+    "%d hPa · %d%% RH";
   #endif
 
 #else
 
   #ifdef IMPERIALUNIT
   const char weatherFmtShort[] PROGMEM =
-    "%.2f inHg \007 %d%% RH \007 %.1f mph [%s]";
+    "%.2f inHg · %d%% RH · %.1f mph [%s]";
   #else
   const char weatherFmtShort[] PROGMEM =
-    "%d hPa \007 %d%% RH \007 %.1f km/h [%s]";
+    "%d hPa · %d%% RH · %.1f km/h [%s]";
   #endif
 
 #endif
@@ -149,18 +149,18 @@ const char        apSettFmt[]    PROGMEM = "SETTINGS PAGE ON: HTTP://%s/";
 #if EXT_WEATHER
   #ifdef IMPERIALUNIT
   const char weatherFmtLong[] PROGMEM =
-    "%s, %.1f\011F \007 feels like: %.1f\011F \007 pressure: %.2f inHg \007 humidity: %d%% \007 wind: %.1f mph [%s]";
+    "%s, %.1f°F · feels like: %.1f\011F · pressure: %.2f inHg · humidity: %d%% · wind: %.1f mph [%s]";
   #else
   const char weatherFmtLong[] PROGMEM =
-    "%s, %.1f\011C \007 feels like: %.1f\011C \007 pressure: %d hPa \007 humidity: %d%% \007 wind: %.1f km/h [%s]";
+    "%s, %.1f°C · feels like: %.1f\011C · pressure: %d hPa · humidity: %d%% · wind: %.1f km/h [%s]";
   #endif
 #else
    #ifdef IMPERIALUNIT
   const char weatherFmtLong[] PROGMEM =
-    "%s, %.1f\011F \007 pressure: %.2f inHg \007 humidity: %d%%";
+    "%s, %.1f°F · pressure: %.2f inHg · humidity: %d%%";
   #else
   const char weatherFmtLong[] PROGMEM =
-    "%s, %.1f\011C \007 pressure: %d hPa \007 humidity: %d%%";
+    "%s, %.1f°C · pressure: %d hPa · humidity: %d%%";
   #endif
 #endif
 

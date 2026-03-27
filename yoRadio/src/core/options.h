@@ -318,8 +318,11 @@ The connection tables are located here https://github.com/e2002/yoradio#connecti
 #ifndef ROTATE_90
   #define ROTATE_90         false  // Optional 90 degree rotation for square displays
 #endif
-#ifndef WAKE_PIN
-  #define WAKE_PIN      255   // Wake Pin (for manual wakeup from sleep mode. can match with BTN_XXXX, ENC_BTNB, ENC2_BTNB.  must be one of: 0,2,4,12,13,14,15,25,26,27,32,33,34,35,36,39)
+#ifndef WAKE_PIN1
+  #define WAKE_PIN1     255   // Wake Pin 1 (for manual wakeup from sleep mode. can match with BTN_XXXX, ENC_BTNB, ENC2_BTNB. Only RTC GPIO: GPIO0-GPIO21)
+#endif
+#ifndef WAKE_PIN2
+  #define WAKE_PIN2     255   // Wake Pin 2 (for IR remote wakeup. Only RTC GPIO: GPIO0-GPIO21)
 #endif
 #ifndef LIGHT_SENSOR
   #define LIGHT_SENSOR  255   // Light sensor
@@ -354,6 +357,9 @@ The connection tables are located here https://github.com/e2002/yoradio#connecti
 #ifndef BITRATE_FULL
   #define BITRATE_FULL     true   // display bitreta badget
 #endif
+#ifndef STATION_WIDGETS
+  #define STATION_WIDGETS  true   // display station number and play mode widgets in meta row
+#endif
 #ifndef SD_AUTOPLAY
   #define SD_AUTOPLAY      true   // auto play from SD card when inserted
 #endif
@@ -382,6 +388,12 @@ The connection tables are located here https://github.com/e2002/yoradio#connecti
 #endif
 #ifndef IR_BUFSIZE
   #define IR_BUFSIZE            128
+#endif
+#ifndef IR_WAKE_MIN_PULSES
+#define IR_WAKE_MIN_PULSES 130
+#endif
+#ifndef IR_WAKE_CHECK_TIME
+#define IR_WAKE_CHECK_TIME 200   // ms
 #endif
 
 /*        THEMES                                 */

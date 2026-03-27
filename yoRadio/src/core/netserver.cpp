@@ -440,6 +440,26 @@ webserver.on("/set", HTTP_GET, [](AsyncWebServerRequest *request){
   CmdHttp::handleSet(request);
 });
 
+#if IR_PIN!=255
+webserver.on("/ircodes.csv", HTTP_GET, [](AsyncWebServerRequest *request){
+  // Ha nincs egyetlen betanított kód sem, 404-et adunk vissza
+  bool hasAny = false;
+  for (int i = 0; i < 19 && !hasAny; i++)
+    for (int j = 0; j < 3 && !hasAny; j++)
+      if (config.ircodes.irVals[i][j] != 0) hasAny = true;
+  if (!hasAny) {
+    request->send(404, "text/plain", "No IR codes recorded yet");
+    return;
+  }
+  if (!config.exportIR()) {
+    request->send(500, "text/plain", "IR export failed");
+    return;
+  }
+  AsyncWebServerResponse *response = request->beginResponse(SPIFFS, IR_CSV_PATH, "text/csv", true);
+  request->send(response);
+});
+#endif
+
 webserver.on("/setClockFont", HTTP_GET, [](AsyncWebServerRequest *request){
   CmdHttp::handleSetClockFont(request);
 });
@@ -761,7 +781,7 @@ void NetServer::irToWs(const char* protocol, uint64_t irvalue) {
 void NetServer::irValsToWs() {
   if (!irRecordEnable) return;
   wsBuf[0]='\0';
-  sprintf (wsBuf, "{\"irvals\": [%llu, %llu, %llu]}", config.ircodes.irVals[config.irindex][0], config.ircodes.irVals[config.irindex][1], config.ircodes.irVals[config.irindex][2]);
+  sprintf (wsBuf, "{\"irvals\": [%llu, %llu, %llu]}", config.ircodes.irVals[config.irBtnId][0], config.ircodes.irVals[config.irBtnId][1], config.ircodes.irVals[config.irBtnId][2]);
   websocket.textAll(wsBuf);
 }
 #endif
@@ -1002,7 +1022,7 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
     if (!index) {
       player.sendCommand({PR_STOP, 0});
       String spath = "/www/";
-      if(filename=="playlist.csv" || filename=="wifi.csv") spath = "/data/";
+      if(filename=="playlist.csv" || filename=="wifi.csv" || filename=="ircodes.csv") spath = "/data/";
       request->_tempFile = SPIFFS.open(spath + filename , "w");
     }
     if (len) {
@@ -1011,6 +1031,16 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
     if (final) {
       request->_tempFile.close();
       if(filename=="playlist.csv") config.indexPlaylist();
+      #if IR_PIN!=255
+      if(filename=="ircodes.csv") {
+        if(config.importIR()) {
+          Serial.println("IR codes imported from ircodes.csv");
+        } else {
+          Serial.println("IR import failed or no valid codes found");
+        }
+        SPIFFS.remove(IR_CSV_PATH);
+      }
+      #endif
     }
   }
 }

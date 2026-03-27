@@ -10,6 +10,9 @@
 class ScrollWidget;
 class PlayListWidget;
 class BitrateWidget;
+class StationNumWidget;
+class PlayModeWidget;
+class StatusWidget;
 class FillWidget;
 class SliderWidget;
 class Pager;
@@ -40,6 +43,9 @@ class Display {
     void flip();
     void invert();
     void requestReconfigure();
+    void setSpeechActive(bool v);
+    void setBlfadeActive(bool v);
+    void setLstripActive(bool v);
     bool deepsleep();
     void wakeup();
     void setContrast();
@@ -51,6 +57,11 @@ class Display {
     ScrollWidget *_meta, *_title1, *_plcurrent, *_weather, *_title2;
     PlayListWidget *_plwidget;
     BitrateWidget *_fullbitrate;
+    StationNumWidget *_stationNum = nullptr;
+    PlayModeWidget   *_playMode   = nullptr;
+    StatusWidget     *_speechWidget = nullptr;
+    StatusWidget     *_blfadeWidget = nullptr;
+    StatusWidget     *_lstripWidget = nullptr;
     FillWidget *_metabackground, *_plbackground;
     SliderWidget *_volbar, *_heapbar;
     Pager *_pager;

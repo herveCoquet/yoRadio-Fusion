@@ -18,6 +18,7 @@
 #include "../displays/nextion.h"
 #endif
 #include <cstddef>
+#include "driver/rtc_io.h"
 
 #if DSP_MODEL==DSP_DUMMY
 #define DUMMYDISPLAY
@@ -28,6 +29,9 @@ extern volatile bool g_dlnaPlaylistDirty;
 #endif
 
 Config config;
+#if IR_PIN != 255
+QueueHandle_t irQueue = nullptr;
+#endif
 
 void u8fix(char *src){
   char last = src[strlen(src)-1]; 
@@ -92,7 +96,7 @@ void Config::init() {
 #endif
   emptyFS = true;
 #if IR_PIN!=255
-    irindex=-1;
+    irBtnId = -1;
 #endif
 #if defined(SD_SPIPINS) || SD_HSPI
   #if !defined(SD_SPIPINS)
@@ -139,6 +143,13 @@ if (store.lastPlayedSource > PL_SRC_DLNA)
   BOOTLOG("SPIFFS mounted");
   emptyFS = _isFSempty();
   if(emptyFS) BOOTLOG("SPIFFS is empty!");
+  #if IR_PIN!=255
+  // Ha van ircodes.csv a SPIFFS-en (pl. SPIFFS feltöltés után), beolvassa és törli
+  if(SPIFFS.exists(IR_CSV_PATH)) {
+    if(importIR()) Serial.println("IR codes loaded from SPIFFS ircodes.csv");
+    SPIFFS.remove(IR_CSV_PATH);
+  }
+  #endif
   loadTheme();  /* ------------------myTheme webUI upload: reloading from SPIFFS--------------*/
   ssidsCount = 0;
   #ifdef USE_SD
@@ -464,10 +475,10 @@ void Config::_initHW(){
   loadTheme();
   #if IR_PIN!=255
   eepromRead(EEPROM_START_IR, ircodes);
-  if(ircodes.ir_set!=4224){
+/*  if(ircodes.ir_set!=4224){
     ircodes.ir_set=4224;
     memset(ircodes.irVals, 0, sizeof(ircodes.irVals));
-  }
+  }*/
   #endif
   #if BRIGHTNESS_PIN!=255
     pinMode(BRIGHTNESS_PIN, OUTPUT);
@@ -647,6 +658,16 @@ void Config::loadTheme(){
   }
 
   loadThemeFromHFile();
+  if (config.store.playlistMode) {
+    theme.plcurrent     = color565(255,255,255);
+    theme.plcurrentbg   = color565(10,10,10);
+    theme.plcurrentfill = color565(10,10,10);
+    theme.playlist[0]   = color565(130,130,130);
+    theme.playlist[1]   = color565(130,130,130);
+    theme.playlist[2]   = color565(130,130,130);
+    theme.playlist[3]   = color565(130,130,130);
+    theme.playlist[4]   = color565(130,130,130);
+  }
  }
   #include "../displays/tools/tftinverttitle.h"
 }
@@ -719,13 +740,24 @@ void Config::setWeatherKey(const char *val){
   display.putRequest(NEWMODE, PLAYER);
 }
 
-#if IR_PIN!=255
-void Config::setIrBtn(int val){
-  irindex = val;
-  netserver.irRecordEnable = (irindex >= 0);
-  irchck = 0;
-  netserver.irValsToWs();
-  if (irindex < 0) saveIR();
+#if IR_PIN != 255
+void Config::setIrBtn(int val) {
+    irBtnId = val;
+    netserver.irRecordEnable = (irBtnId >= 0);
+    irBankId = 0;
+    netserver.irValsToWs(); // kiküldi a három mentett gombot a webszervernek
+    IRCommand ircmd;
+    if (val >= 0) {
+        ircmd.irBtnId = val;   // a gombhoz tartozó index, -1 a mentéséshez
+        ircmd.hasBtnId = true; // mentés engedélyezése
+        ircmd.irBankId = 0;    // 0, 1, 2
+        ircmd.hasBank = true;  // mentés engedélyezése
+        xQueueSend(irQueue, &ircmd, 0);
+        Serial.printf("config.cpp--> setIrBtn--> xQueueSend\n");
+    } else {
+        saveIR();
+        Serial.println("config.cpp--> setIrBtn--> val: -1 (save)");
+    }
 }
 #endif
 void Config::resetSystem(const char *val, uint8_t clientId){
@@ -917,10 +949,11 @@ void Config::setDefaults() {
   store.blDimEnable   = 0;
   store.blDimLevel    = 5;
   store.blDimInterval = 60;
+  store.ttsEnabled = 1;
   store.ttsDuringPlayback = false;
   store.ttsInterval = 60;
-  store.clockFontMono = true;
-  store.stationLine = false;
+  store.clockFontMono = false;
+  store.stationLine = true;
   store.shortWeather = false;
   store.fliptouch=false;
   store.dbgtouch=false;
@@ -1003,6 +1036,69 @@ void Config::setSnuffle(bool sn){
 #if IR_PIN!=255
 void Config::saveIR(){
   eepromWrite(EEPROM_START_IR, ircodes);
+}
+
+// IR kódok exportálása CSV fájlba SPIFFS-re
+// Formátum: gombNév\tval0\tval1\tval2
+bool Config::exportIR() {
+  static const char* irNames[] = {
+    "POWER", "PLAY_STOP", "BACK", "PREV", "LIST", "NEXT",
+    "VOLUME_DOWN", "MODE", "VOLUME_UP",
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
+  };
+  File file = SPIFFS.open(IR_CSV_PATH, "w");
+  if (!file) return false;
+  for (int i = 0; i < 19; i++) {
+    file.printf("%s\t%llu\t%llu\t%llu\n",
+      irNames[i],
+      ircodes.irVals[i][0],
+      ircodes.irVals[i][1],
+      ircodes.irVals[i][2]);
+  }
+  file.close();
+  return true;
+}
+
+// IR kódok importálása CSV fájlból (SPIFFS /data/ircodes.csv)
+// Formátum: gombNév\tval0\tval1\tval2
+bool Config::importIR() {
+  File file = SPIFFS.open(IR_CSV_PATH, "r");
+  if (!file) return false;
+  static const char* irNames[] = {
+    "POWER", "PLAY_STOP", "BACK", "PREV", "LIST", "NEXT",
+    "VOLUME_DOWN", "MODE", "VOLUME_UP",
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
+  };
+  const int irCount = 19;
+  bool anyLoaded = false;
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) continue;
+    // Parse: name\tval0\tval1\tval2
+    int t1 = line.indexOf('\t');
+    if (t1 < 0) continue;
+    String name = line.substring(0, t1);
+    int t2 = line.indexOf('\t', t1 + 1);
+    if (t2 < 0) continue;
+    int t3 = line.indexOf('\t', t2 + 1);
+    if (t3 < 0) t3 = line.length();
+    uint64_t v0 = strtoull(line.substring(t1 + 1, t2).c_str(), nullptr, 10);
+    uint64_t v1 = strtoull(line.substring(t2 + 1, t3).c_str(), nullptr, 10);
+    uint64_t v2 = (t3 < (int)line.length()) ? strtoull(line.substring(t3 + 1).c_str(), nullptr, 10) : 0;
+    for (int i = 0; i < irCount; i++) {
+      if (name == irNames[i]) {
+        ircodes.irVals[i][0] = v0;
+        ircodes.irVals[i][1] = v1;
+        ircodes.irVals[i][2] = v2;
+        anyLoaded = true;
+        break;
+      }
+    }
+  }
+  file.close();
+  if (anyLoaded) saveIR();
+  return anyLoaded;
 }
 #endif
 
@@ -1444,35 +1540,83 @@ void Config::setDspOn(bool dspon, bool saveval){
   }
 }
 
-void Config::doSleep(){
-  if(BRIGHTNESS_PIN!=255) analogWrite(BRIGHTNESS_PIN, 0);
-  display.deepsleep();
+void Config::doSleep() {
+    if (BRIGHTNESS_PIN != 255) { analogWrite(BRIGHTNESS_PIN, 0); }
+    display.deepsleep();
 #ifdef USE_NEXTION
-  nextion.sleep();
+    nextion.sleep();
 #endif
-#if !defined(ARDUINO_ESP32C3_DEV)
-  if(WAKE_PIN!=255) esp_sleep_enable_ext0_wakeup((gpio_num_t)WAKE_PIN, LOW);
-  esp_sleep_enable_timer_wakeup(config.sleepfor * 60 * 1000000ULL);
-  esp_deep_sleep_start();
+    uint64_t mask = 0;
+#if WAKE_PIN1 >= 0 && WAKE_PIN1 < 64
+    if (rtc_gpio_is_valid_gpio((gpio_num_t)WAKE_PIN1)) {
+        rtc_gpio_pullup_en((gpio_num_t)WAKE_PIN1);
+        rtc_gpio_pulldown_dis((gpio_num_t)WAKE_PIN1);
+        mask |= (1ULL << WAKE_PIN1);
+    }
 #endif
+#if WAKE_PIN2 >= 0 && WAKE_PIN2 < 64
+    if (rtc_gpio_is_valid_gpio((gpio_num_t)WAKE_PIN2)) {
+        rtc_gpio_pullup_en((gpio_num_t)WAKE_PIN2);
+        rtc_gpio_pulldown_dis((gpio_num_t)WAKE_PIN2);
+        mask |= (1ULL << WAKE_PIN2);
+    }
+#endif
+    if (mask != 0) { esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ANY_LOW); }
+    esp_sleep_enable_timer_wakeup(config.sleepfor * 60ULL * 1000000ULL);
+    esp_deep_sleep_start();
 }
 
-void Config::doSleepW(){
-  if(BRIGHTNESS_PIN!=255) analogWrite(BRIGHTNESS_PIN, 0);
-  display.deepsleep();
+void Config::doSleepW() {
+    display.deepsleep();
 #ifdef USE_NEXTION
-  nextion.sleep();
+    nextion.sleep();
 #endif
-#if !defined(ARDUINO_ESP32C3_DEV)
-  if(WAKE_PIN!=255) esp_sleep_enable_ext0_wakeup((gpio_num_t)WAKE_PIN, LOW);
-  esp_deep_sleep_start();
+    uint64_t mask = 0;
+#if WAKE_PIN1 >= 0 && WAKE_PIN1 < 64
+    if (rtc_gpio_is_valid_gpio((gpio_num_t)WAKE_PIN1)) {
+        rtc_gpio_pullup_en((gpio_num_t)WAKE_PIN1);
+        rtc_gpio_pulldown_dis((gpio_num_t)WAKE_PIN1);
+        mask |= (1ULL << WAKE_PIN1);
+    }
 #endif
+#if WAKE_PIN2 >= 0 && WAKE_PIN2 < 64
+    if (rtc_gpio_is_valid_gpio((gpio_num_t)WAKE_PIN2)) {
+        rtc_gpio_pullup_en((gpio_num_t)WAKE_PIN2);
+        rtc_gpio_pulldown_dis((gpio_num_t)WAKE_PIN2);
+        mask |= (1ULL << WAKE_PIN2);
+    }
+#endif
+    delay(200);
+    if (mask != 0) { esp_sleep_enable_ext1_wakeup(mask, ESP_EXT1_WAKEUP_ANY_LOW); }
+    esp_deep_sleep_start();
 }
 
-void Config::sleepForAfter(uint16_t sf, uint16_t sa){
-  sleepfor = sf;
-  if(sa > 0) timekeeper.waitAndDo(sa * 60, doSleep);
-  else doSleep();
+void Config::sleepForAfter(uint16_t sf, uint16_t sa) {
+    sleepfor = sf;
+    if (sa > 0) {
+        timekeeper.waitAndDo(sa * 60, doSleep);
+    } else {
+        doSleep();
+    }
+}
+
+/*----- number to formated string -----*/
+const char* fmtThousands(uint32_t v) {
+    static char buf[16];
+    char        tmp[16];
+    sprintf(tmp, "%lu", v);
+
+    int len = strlen(tmp);
+    int pos = len % 3;
+    int j = 0;
+
+    for (int i = 0; i < len; i++) {
+        if (i && (i % 3) == pos) buf[j++] = ' ';
+        buf[j++] = tmp[i];
+    }
+    buf[j] = 0;
+
+    return buf;
 }
 
 void Config::bootInfo() {
@@ -1518,4 +1662,3 @@ void Config::bootInfo() {
   );
   BOOTLOG("------------------------------------------------");
 }
-

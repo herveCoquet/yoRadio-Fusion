@@ -87,6 +87,7 @@
 /********************************************/
 
 /********************************************/
+#define RSSI_DIGIT       true
 /*  Egyéb beállítások.  */
 //#define MUTE_PIN     2            /*  MUTE Pin */
 //#define MUTE_VAL    LOW          /*  Write this to MUTE_PIN when player is stop */

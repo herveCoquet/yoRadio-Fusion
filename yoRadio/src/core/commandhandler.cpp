@@ -167,9 +167,24 @@ if (strEquals(command, "brightness")) {
   if (strEquals(command, "submitplaylist"))  { player.sendCommand({PR_STOP, 0}); return true; }
 
 #if IR_PIN!=255
-  if (strEquals(command, "irbtn"))  { config.setIrBtn(atoi(value)); return true; }
-  if (strEquals(command, "chkid"))  { config.irchck = static_cast<uint8_t>(atoi(value)); return true; }
-  if (strEquals(command, "irclr"))  { config.ircodes.irVals[config.irindex][static_cast<uint8_t>(atoi(value))] = 0; return true; }
+  if (strEquals(command, "irbtn")) { // Gombok  value: 0-18
+    config.setIrBtn(atoi(value));
+    return true;
+  }
+  if (strEquals(command, "chkid")) { // A három IR bank chkid, value: 0, 1 vagy 2
+    IRCommand ircmd = {};
+    ircmd.irBankId = static_cast<uint8_t>(atoi(value));
+    ircmd.hasBank = true;
+    ircmd.hasBtnId = false; // Nem szükséges az index átadása, mert a tanulás során már beállításra kerül a config.irBtnId változó.
+    xQueueSend(irQueue, &ircmd, 0);
+    Serial.printf("commandhandler.cpp--> xQueueSend chkid: %d\n", ircmd.irBankId);
+    return true;
+  }
+  if (strEquals(command, "irclr")) { // Bank törlés. --> command: irclr
+    config.ircodes.irVals[config.irBtnId][static_cast<uint8_t>(atoi(value))] = 0;
+    Serial.printf("commandhandler.cpp--> Bank törlés--> config.irBtnId: %d, chkid: %d\n", config.irBtnId, static_cast<uint8_t>(atoi(value)));
+    return true;
+  }
 #endif
   if (strEquals(command, "reset"))  { config.resetSystem(value, cid); return true; }
 
@@ -264,6 +279,7 @@ void handleSet(AsyncWebServerRequest *request) {
     if (v != config.store.ttsEnabled) {
       config.store.ttsEnabled   = v;
       clock_tts_enabled         = (v != 0);  // runtime azonnal
+      display.setSpeechActive(v != 0);
       changed = true;
     }
   }
@@ -330,6 +346,7 @@ void handleSet(AsyncWebServerRequest *request) {
     uint8_t v = request->getParam("blDimEnable")->value().toInt() ? 1 : 0;
     if (v != config.store.blDimEnable) {
       config.store.blDimEnable   = v;
+      display.setBlfadeActive(v != 0);
       changed = true;
 #if (BRIGHTNESS_PIN != 255)
     if (v == 0) {
@@ -495,6 +512,7 @@ void handleSet(AsyncWebServerRequest *request) {
     uint8_t v = request->getParam("lsEnabled")->value().toInt() ? 1 : 0;
     if (v != config.store.lsEnabled) {
       config.store.lsEnabled = v;
+      display.setLstripActive(v != 0);
       changed = true;
     }
   }

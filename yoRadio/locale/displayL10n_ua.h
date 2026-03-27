@@ -116,21 +116,21 @@ const char        apSettFmt[]    PROGMEM = "НАЛАШТУВАННЯ: HTTP://%s/
 
 #if (DSP_MODEL == DSP_ILI9341) || (DSP_MODEL == DSP_ST7735) || (DSP_MODEL == DSP_ST7789) || (DSP_MODEL == DSP_ST7789_76)
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH %.1f km/h";
-#elif (DSP_MODEL == DSP_ST7789_240)
+  "%d hPa · %d%% RH · %.1f km/h";
+#elif (DSP_MODEL == DSP_ST7789_240) || DSP_MODEL!=DSP_GC9A01 || DSP_MODEL!=DSP_GC9A01A || DSP_MODEL!=DSP_GC9A01_I80
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH";
+  "%d hPa · %d%% RH";
 #else
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa \007 %d%% RH \007 %.1f km/h [%s]";
+  "%d hPa · %d%% RH · %.1f km/h [%s]";
 #endif
 
 #if EXT_WEATHER
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 відчувається: %.1f\011C \007 тиск: %d гПа \007 вологість: %d%% \007 вітер: %.1f км/год [%s]";
+  "%s, %.1f°C · відчувається: %.1f\011C · тиск: %d гПа · вологість: %d%% · вітер: %.1f км/год [%s]";
 #else
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 тиск: %d hPa \007 вологість: %d%%";
+  "%s, %.1f°C · тиск: %d hPa · вологість: %d%%";
 #endif
 
 static inline const char* getWeatherFmt() {

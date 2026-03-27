@@ -117,20 +117,20 @@ const char        apSettFmt[]    PROGMEM = "НАСТРОЙКИ: HTTP://%s/";
 
 #if (DSP_MODEL == DSP_ILI9341) || (DSP_MODEL == DSP_ST7735) || (DSP_MODEL == DSP_ST7789) || (DSP_MODEL == DSP_ST7789_76)
 const char weatherFmtShort[] PROGMEM =
-  "%d гПа %d%% RH %.1f км/год";
-#elif (DSP_MODEL == DSP_ST7789_240)
-  "%d гПа %d%% RH";
+  "%d гПа · %d%% RH · %.1f км/год";
+#elif (DSP_MODEL == DSP_ST7789_240) || DSP_MODEL!=DSP_GC9A01 || DSP_MODEL!=DSP_GC9A01A || DSP_MODEL!=DSP_GC9A01_I80
+  "%d гПа · %d%% RH";
 #else
 const char weatherFmtShort[] PROGMEM =
-  "%d гПа \007 %d%% RH \007 %.1f км/год [%s]";
+  "%d гПа · %d%% RH · %.1f км/год [%s]";
 #endif
 
 #if EXT_WEATHER
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 ощущается: %.1f\011C \007 давление: %d гПа \007 влажность: %d%% \007 ветер: %.1f км/год [%s]";
+  "%s, %.1f°C · ощущается: %.1f\011C · давление: %d гПа · влажность: %d%% · ветер: %.1f км/год [%s]";
 #else
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 давление: %d гПа \007 влажность: %d%%";
+  "%s, %.1f°C · давление: %d гПа · влажность: %d%%";
 #endif
 
 static inline const char* getWeatherFmt() {

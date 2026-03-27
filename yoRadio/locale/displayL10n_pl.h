@@ -118,21 +118,21 @@ const char        apSettFmt[]    PROGMEM = "SETTINGS PAGE ON: HTTP://%s/";
 
 #if (DSP_MODEL == DSP_ILI9341) || (DSP_MODEL == DSP_ST7735) || (DSP_MODEL == DSP_ST7789) || (DSP_MODEL == DSP_ST7789_76) || (DSP_MODEL == DSP_ST7789_170)
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH %.1f km/h";
-#elif (DSP_MODEL == DSP_ST7789_240)
+  "%d hPa · %d%% RH · %.1f km/h";
+#elif (DSP_MODEL == DSP_ST7789_240) || DSP_MODEL!=DSP_GC9A01 || DSP_MODEL!=DSP_GC9A01A || DSP_MODEL!=DSP_GC9A01_I80
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH";
+  "%d hPa · %d%% RH";
 #else
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa \007 %d%% RH \007 %.1f km/h [%s]";
+  "%d hPa · %d%% RH · %.1f km/h [%s]";
 #endif
 
 #if EXT_WEATHER
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 odczuwalna: %.1f\011C \007 ciśnienie: %d hPa \007 wilgotność: %d%% \007 wiatr: %.1f km/h [%s]";
+  "%s, %.1f°C · odczuwalna: %.1f°C · ciśnienie: %d hPa · wilgotność: %d%% · wiatr: %.1f km/h [%s]";
 #else
 const char weatherFmtLong[] PROGMEM =
-  "%s \007 %.1f\011C \007 %d hPa \007 %d%% RH";
+  "%s, %.1f°C · %d hPa · %d%%";
 #endif
 
 static inline const char* getWeatherFmt() {

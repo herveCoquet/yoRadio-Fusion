@@ -14,6 +14,8 @@
 #include "core/optionschecker.h"
 #include "core/timekeeper.h"
 #include "clock/clock_tts.h"
+#include "driver/rtc_io.h"
+
 #ifdef USE_NEXTION
 #include "displays/nextion.h"
 #endif
@@ -77,8 +79,20 @@ void setupOTA(){
 }
 #endif
 
+#include "IRremoteESP8266/IRrecv.h"
+#include "IRremoteESP8266/IRutils.h"
+
+extern IRrecv         irrecv;
+extern decode_results irResults;
+
 void setup() {
   Serial.begin(115200);
+    EEPROM.begin(EEPROM_SIZE);
+#if IR_PIN != 255
+    irQueue = xQueueCreate(4, sizeof(IRCommand));
+    config.eepromRead(EEPROM_START_IR, config.ircodes);
+    irWakeup();
+#endif
 #ifdef USE_LEDSTRIP_PLUGIN
   ledstripPluginInit();
 #endif

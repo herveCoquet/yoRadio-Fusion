@@ -12,6 +12,11 @@
 #define dlnaHost "192.168.180.122" // DLNA server IP address
 #define dlnaIDX  21  //MUSIC container index, on Synology NAS is usually 21
 
+#define USE_LEDSTRIP_PLUGIN
+#define LEDSTRIP_PIN        18
+#define LEDSTRIP_COUNT      144
+
+
 #define SAVER_Y_MIN  160
 
 #define DSP_MODEL         DSP_NV3041A
@@ -30,8 +35,8 @@
 
 #define BRIGHTNESS_PIN		  1
 
-#define RSSI_STEPS       -50,-60,-70,-80
-#define RSSI_DIGIT       false
+//#define RSSI_STEPS       -50,-60,-70,-80
+#define RSSI_DIGIT       true
 
 /*  TOUCHSCREEN  */
 #define  TS_MODEL   TS_MODEL_GT911
@@ -69,6 +74,9 @@
 #define ENC_BTNL             16
 #define ENC_BTNB             7
 #define ENC_INTERNALPULLUP   false
+
+#define WAKE_PIN1            7
+#define WAKE_PIN2            17  
 
 /* Encoder2 */
 //#define ENC2_BTNR             46

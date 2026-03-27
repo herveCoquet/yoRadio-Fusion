@@ -16,9 +16,13 @@
 //#define IMPERIALUNIT
 
 // --- DLNA / Synology ---
-//#define USE_DLNA
-//#define dlnaHost "192.168.180.122" // DLNA server IP address
-//#define dlnaIDX  21  //MUSIC container index, on Synology NAS is usually 21
+#define USE_DLNA
+#define dlnaHost "192.168.180.122" // DLNA server IP address
+#define dlnaIDX  21  //MUSIC container index, on Synology NAS is usually 21
+
+#define USE_LEDSTRIP_PLUGIN
+#define LEDSTRIP_PIN        48
+#define LEDSTRIP_COUNT      30
 
 /******************************************/
 // #define LED_BUILTIN_S3    48     /* S3-onboard RGB led pin */
@@ -87,11 +91,14 @@
 
 /* REMOTE CONTROL INFRARED RECEIVER */
 #define IR_PIN 17
+#define WAKE_PIN1      1
+#define WAKE_PIN2      17
 
 /********************************************/
 
 /********************************************/
 /*  Egyéb beállítások.  */
+#define RSSI_DIGIT       true
 //#define MUTE_PIN     2            /*  MUTE Pin */
 //#define MUTE_VAL    LOW          /*  Write this to MUTE_PIN when player is stop */
 //#define PLAYER_FORCE_MONO false  /*  mono option on boot - false stereo, true mono. "false" */

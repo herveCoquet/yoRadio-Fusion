@@ -16,6 +16,7 @@
 #endif
 #define PLAYLIST_PATH     "/data/playlist.csv"
 #define SSIDS_PATH        "/data/wifi.csv"
+#define IR_CSV_PATH       "/data/ircodes.csv"
 #define TMP_PATH          "/data/tmpfile.txt"
 #define INDEX_PATH        "/data/index.dat"
 
@@ -59,6 +60,10 @@ enum PlaylistSource : uint8_t {
   PL_SRC_WEB  = 0,
   PL_SRC_DLNA = 1
 };
+
+#if IR_PIN != 255
+extern QueueHandle_t irQueue;
+#endif
 
 void u8fix(char *src);
 
@@ -235,11 +240,16 @@ struct config_t
   uint8_t   lsBrightness;    // 0..100 (%)
 };
 
-#if IR_PIN!=255
-struct ircodes_t
-{
-  unsigned int ir_set; //must be 4224
-  uint64_t irVals[20][3];
+#if IR_PIN != 255
+struct IRCommand {
+    int irBtnId;
+    int irBankId;
+    bool hasBtnId;
+    bool hasBank;
+};
+
+struct ircodes_t {
+    uint64_t irVals[20][3];
 };
 #endif
 
@@ -283,9 +293,9 @@ class Config {
     config_t store;
     station_t station;
     theme_t   theme;
-#if IR_PIN!=255
-    int irindex;
-    uint8_t irchck;
+#if IR_PIN != 255
+    int       irBtnId;
+    uint8_t   irBankId;
     ircodes_t ircodes;
 #endif
     BitrateFormat configFmt = BF_UNKNOWN;
@@ -309,6 +319,8 @@ class Config {
     //void save();
 #if IR_PIN!=255
     void saveIR();
+    bool exportIR();
+    bool importIR();
 #endif
     void init();
     void loadTheme();

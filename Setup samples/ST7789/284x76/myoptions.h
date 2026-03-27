@@ -20,6 +20,10 @@
 //#define dlnaHost "192.168.180.122" // DLNA server IP address
 //#define dlnaIDX  21  //MUSIC container index, on Synology NAS is usually 21
 
+//#define USE_LEDSTRIP_PLUGIN
+//#define LEDSTRIP_PIN        48
+//#define LEDSTRIP_COUNT      30
+
 /******************************************/
 // #define LED_BUILTIN_S3    48     /* S3-onboard RGB led pin */
 #define USE_BUILTIN_LED false /* The RGB LED does not turn on.. */
@@ -88,7 +92,7 @@
 
 /* REMOTE CONTROL INFRARED RECEIVER */
 #define IR_PIN 17
-
+#define WAKE_PIN2      17
 /********************************************/
 
 /********************************************/
@@ -100,7 +104,7 @@
 //#define ROTATE_90   false        /*  Optional 90 degree rotation for square displays."false"*/
 //#define TFT_ROTATE      0        /*  Display rotation. 0 - 0, 1 - 90, 2 - 180, 3 - 270 degrees */
 //#define HIDE_VOLPAGE             /* Hangerő elrejtés, navigálj a hangerő folyamatjelző sávjával.*/
-//#define WAKE_PIN      1
+#define WAKE_PIN      1
 //#define LIGHT_SENSOR      40               /*  Light sensor  */
 //#define AUTOBACKLIGHT(x)  *function*        /*  Autobacklight function. See options.h for example  */
 //#define NAME_STRIM              /* Az állomás nevének megjelenítése a streamből. (MOD Maleksm)*/

@@ -5,7 +5,7 @@
 #include <Adafruit_GFX.h>
 #include "../ILI9488/ILI9486_SPI.h"
 #include "fonts/bootlogo_cust128.h"  //bootlogo99x64.h
-#include "fonts/dsfont70.h"
+#include "fonts/dsfont52.h"
 
 typedef GFXcanvas16 Canvas;
 typedef ILI9486_SPI yoDisplay;

@@ -246,7 +246,7 @@ void Display::_buildPager(){
   #if DSP_MODEL==DSP_ILI9488 || DSP_MODEL==DSP_ILI9486 || DSP_MODEL==DSP_NV3041A || DSP_MODEL==DSP_ST7796 || DSP_MODEL==DSP_ST7789  || DSP_MODEL==DSP_ILI9341
   // Minden layouton legyen weather ikon
     if (_weatherIcon) pages[PG_PLAYER]->addWidget(_weatherIcon);
-  #elif DSP_ST7789_170
+  #elif DSP_MODEL==DSP_ST7789_170
   // Csak nem-Default layouton legyen weather ikon
     if (_weatherIcon && config.store.vuLayout != 0) {
       pages[PG_PLAYER]->addWidget(_weatherIcon);
@@ -258,6 +258,25 @@ void Display::_buildPager(){
   #else
     _bitrate = new TextWidget(bitrateConf, 30, false, config.theme.bitrate, config.theme.background);
     pages[PG_PLAYER]->addWidget( _bitrate);
+  #endif
+  // Állomás sorszám és lejátszás mód widgetek (meta sor bal/jobb oldala)
+  #if STATION_WIDGETS
+   #if DSP_MODEL!=DSP_ST7735 && DSP_MODEL!=DSP_ST7789_240 && DSP_MODEL!=DSP_GC9A01 && DSP_MODEL!=DSP_GC9A01A && DSP_MODEL!=DSP_GC9A01_I80
+    _stationNum = new StationNumWidget(getstationNumConf(), config.theme.div, config.theme.background);
+    pages[PG_PLAYER]->addWidget(_stationNum);
+    _playMode   = new PlayModeWidget(getplayModeConf(), config.theme.div, config.theme.background);
+    pages[PG_PLAYER]->addWidget(_playMode);
+   #endif 
+  #endif
+  #if DSP_MODEL==DSP_ILI9488 || DSP_MODEL==DSP_ILI9486 || DSP_MODEL==DSP_NV3041A || DSP_MODEL==DSP_ST7796
+    _speechWidget = new StatusWidget(getstatusConf(0), "TTS", config.theme.bitrate, config.theme.clockbg);
+    pages[PG_PLAYER]->addWidget(_speechWidget);
+    _blfadeWidget = new StatusWidget(getstatusConf(1), "FADE", config.theme.bitrate, config.theme.clockbg);
+    pages[PG_PLAYER]->addWidget(_blfadeWidget);
+    #ifdef USE_LEDSTRIP_PLUGIN
+    _lstripWidget = new StatusWidget(getstatusConf(2), "RGB", config.theme.bitrate, config.theme.clockbg);
+    pages[PG_PLAYER]->addWidget(_lstripWidget);
+    #endif
   #endif
   if(_vuwidget) pages[PG_PLAYER]->addWidget( _vuwidget);
   pages[PG_PLAYER]->addWidget(_clock);
@@ -298,8 +317,17 @@ void Display::_apScreen() {
       _boot->addWidget(new FillWidget(metaBGConfInv, config.theme.metafill));
       #endif
     #endif
+
     ScrollWidget *bootTitle = (ScrollWidget*) &_boot->addWidget(new ScrollWidget("*", apTitleConf, config.theme.meta, config.theme.metabg));
     bootTitle->setText("yoRadio AP Mode");
+#if DSP_MODEL == DSP_ST7789_76    
+    { char _buf[50]; snprintf(_buf, sizeof(_buf), "%s : %s", LANG::apNameTxt, apSsid);
+      TextWidget *apname = (TextWidget*) &_boot->addWidget(new TextWidget(apNameConf, 50, false, config.theme.clock, config.theme.background));
+      apname->setText(_buf); }
+    { char _buf[50]; snprintf(_buf, sizeof(_buf), "%s : %s", LANG::apPassTxt, apPassword);
+      TextWidget *appass = (TextWidget*) &_boot->addWidget(new TextWidget(apPassConf, 50, false, config.theme.clock, config.theme.background));
+      appass->setText(_buf); }
+#else
     TextWidget *apname = (TextWidget*) &_boot->addWidget(new TextWidget(apNameConf, 30, false, config.theme.title1, config.theme.background));
     apname->setText(LANG::apNameTxt);
     TextWidget *apname2 = (TextWidget*) &_boot->addWidget(new TextWidget(apName2Conf, 30, false, config.theme.clock, config.theme.background));
@@ -308,6 +336,7 @@ void Display::_apScreen() {
     appass->setText(LANG::apPassTxt);
     TextWidget *appass2 = (TextWidget*) &_boot->addWidget(new TextWidget(apPass2Conf, 30, false, config.theme.clock, config.theme.background));
     appass2->setText(apPassword);
+#endif
     ScrollWidget *bootSett = (ScrollWidget*) &_boot->addWidget(new ScrollWidget("*", apSettConf, config.theme.title2, config.theme.background));
     bootSett->setText(config.ipToStr(WiFi.softAPIP()), LANG::apSettFmt);
     _pager->addPage(_boot);
@@ -358,6 +387,9 @@ void Display::_start() {
   _station();
 //  _refreshWeatherUI();
   _time(false);
+  if (_speechWidget) _speechWidget->setStat(config.store.ttsEnabled  != 0);
+  if (_blfadeWidget) _blfadeWidget->setStat(config.store.blDimEnable != 0);
+  if (_lstripWidget) _lstripWidget->setStat(config.store.lsEnabled   != 0);
   _bootStep = 2;
   pm.on_display_player();
 }
@@ -403,9 +435,22 @@ if (newmode == _mode ||
     #endif
     _meta->setAlign(metaConf.widget.align);
     _meta->setText(config.station.name);
+    #if STATION_WIDGETS
+    if (_stationNum) _stationNum->setNum(config.lastStation());
+    if (_playMode) {
+      uint8_t _pm = config.getMode();
+      #ifdef USE_DLNA
+      if (_pm == PM_WEB && config.store.playlistSource == PL_SRC_DLNA) _pm = 2;
+      #endif
+      _playMode->setMode(_pm);
+    }
+    #endif
     _nums->setText("");
     config.isScreensaver = false;
     _pager->setPage( pages[PG_PLAYER]);
+    if (_speechWidget) _speechWidget->setStat(config.store.ttsEnabled  != 0);
+    if (_blfadeWidget) _blfadeWidget->setStat(config.store.blDimEnable != 0);
+    if (_lstripWidget) _lstripWidget->setStat(config.store.lsEnabled   != 0);
     config.setDspOn(config.store.dspon, false);
     pm.on_display_player();
 //    _kickWeatherRefresh();
@@ -691,11 +736,17 @@ void Display::loop() {
           if (_rssi) {
             _setRSSI(WiFi.RSSI());
           }
+          if (_speechWidget) _speechWidget->setStat(config.store.ttsEnabled  != 0);
+          if (_blfadeWidget) _blfadeWidget->setStat(config.store.blDimEnable != 0);
+          if (_lstripWidget) _lstripWidget->setStat(config.store.lsEnabled   != 0);
           _endRebuild();
           _kickWeatherRefresh();
           break;
         }
 
+        case STATUS_SPEECH: if(_speechWidget) _speechWidget->setStat(request.payload != 0); break;
+        case STATUS_BLFADE: if(_blfadeWidget) _blfadeWidget->setStat(request.payload != 0); break;
+        case STATUS_LSTRIP: if(_lstripWidget) _lstripWidget->setStat(request.payload != 0); break;
         default: break;
 
         if (uxQueueMessagesWaiting(displayQueue))
@@ -730,6 +781,17 @@ void Display::_setRSSI(int rssi) {
 void Display::_station() {
   _meta->setAlign(metaConf.widget.align);
   _meta->setText(config.station.name);
+  // Sorszám és mód widget frissítése
+  #if STATION_WIDGETS
+  if (_stationNum) _stationNum->setNum(config.lastStation());
+  if (_playMode) {
+      uint8_t _pm = config.getMode();
+      #ifdef USE_DLNA
+      if (_pm == PM_WEB && config.store.playlistSource == PL_SRC_DLNA) _pm = 2;
+      #endif
+      _playMode->setMode(_pm);
+    }
+  #endif
 /*#ifdef USE_NEXTION
   nextion.newNameset(config.station.name);
   nextion.bitrate(config.station.bitrate);
@@ -986,6 +1048,9 @@ void Display::_rebuildUI() {
   _title1    = new ScrollWidget();
   _plcurrent = new ScrollWidget();
   _title2    = nullptr;
+  _speechWidget = nullptr;
+  _blfadeWidget = nullptr;
+  _lstripWidget = nullptr;
   _buildPager();
 
   switch (_mode) {
@@ -1017,6 +1082,10 @@ void Display::_rebuildUI() {
 void Display::_endRebuild() {
   _locked = false;
 }
+
+void Display::setSpeechActive(bool v) { putRequest(STATUS_SPEECH, v ? 1 : 0); }
+void Display::setBlfadeActive(bool v) { putRequest(STATUS_BLFADE, v ? 1 : 0); }
+void Display::setLstripActive(bool v) { putRequest(STATUS_LSTRIP, v ? 1 : 0); }
 
 //============================================================================================================================
 #else // !DUMMYDISPLAY

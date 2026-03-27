@@ -54,4 +54,25 @@ struct BitrateConfig {
   uint16_t dimension;
 };
 
+// StationNumConfig: állomás sorszám widget (outline box, mint a bitrate szám oldala)
+// PlayModeConfig:   lejátszás mód widget (filled box, mint a bitrate codec oldala)
+// Mindkettő BitrateConfig-kompatibilis struktúra
+struct StationNumConfig {
+  WidgetConfig widget;
+  uint16_t dimension;   // magasság-alap (boxH = dimension/2, boxW = dimension)
+};
+
+struct PlayModeConfig {
+  WidgetConfig widget;
+  uint16_t dimension;
+};
+
+// StatusWidgetConfig: fix feliratú státuszjelző widget (pl. SPEECH / BLFADE / LSTRIP)
+// A widget csak feliratot mutat; setActive(true) = theme.clock szín, setActive(false) = theme.div szín
+struct StatusWidgetConfig {
+  WidgetConfig widget;
+  uint16_t width;   // widget doboz szélessége (px)
+  uint16_t height;  // widget doboz magassága (px)
+};
+
 #endif

@@ -13,6 +13,7 @@
 #include "widgets.h"
 #include "../../core/player.h"    //  for VU widget
 #include "../../core/network.h"   //  for Clock widget
+#include "../fonts/yo_freefonts.h"   //  FreeSans proporcionális fontok
 #include "../../core/config.h"
 #include "../tools/l10n.h"
 #include "../tools/psframebuffer.h"
@@ -233,12 +234,32 @@ TextWidget::~TextWidget() {
 
 void TextWidget::_charSize(uint8_t textsize, uint8_t& width, uint16_t& height){
 #ifndef DSP_LCD
-  width = textsize * CHARWIDTH;
-  height = textsize * CHARHEIGHT;
+  uint8_t ts = (textsize > 0) ? textsize : 1;  // 0 → 5x7 natív = 1x méret
+  width = ts * CHARWIDTH;
+  height = ts * CHARHEIGHT;
 #else
   width = 1;
   height = 1;
 #endif
+}
+
+/* ── FreeSans helper: string pixel-szélessége ─────────────────────────────── */
+uint16_t TextWidget::_measureText(const char* txt) {
+#ifndef DSP_LCD
+  if (_gfxFont) return yoStringWidth(_gfxFont, txt);
+  // textsize=0 esetén _charWidth=0 lenne → 1x mérettel számolunk
+  uint8_t cw = (_charWidth > 0) ? _charWidth : CHARWIDTH;
+  return utf8len(txt) * cw;
+#endif
+  return utf8len(txt) * _charWidth;
+}
+
+/* ── FreeSans helper: top → baseline Y konverzió ─────────────────────────── */
+int16_t TextWidget::_baselineY() {
+#ifndef DSP_LCD
+  if (_gfxFont) return _config.top + yoBaselineOffset(_gfxFont);
+#endif
+  return _config.top;
 }
 
 void TextWidget::init(WidgetConfig wconf, uint16_t buffsize, bool uppercase, uint16_t fgcolor, uint16_t bgcolor) {
@@ -251,11 +272,26 @@ void TextWidget::init(WidgetConfig wconf, uint16_t buffsize, bool uppercase, uin
   _charSize(_config.textsize, _charWidth, _textheight);
   _textwidth = _oldtextwidth = _oldleft = 0;
   _uppercase = uppercase;
+  /* Font hozzárendelés a textsize alapján:
+     0 = 5x7 natív (nullptr), 1+ = yoScrollFont (DejaVuSans8, Sans13, Bold12...) */
+#ifndef DSP_LCD
+  _gfxFont = (_config.textsize > 0) ? yoScrollFont(_config.textsize) : nullptr;
+  if (_gfxFont) _textheight = yoFontHeight(_gfxFont);
+#endif
 }
 
 void TextWidget::setText(const char* txt) {
-  strlcpy(_text, utf8To(txt, _uppercase), _buffsize);
-  _textwidth = utf8len(_text) * _charWidth;
+  /* FreeSans/DejaVu font esetén az utf8To() megkerülése:
+     a GFXfont write(uint16_t) az eredeti UTF-8 kódpontokat várja,
+     az utf8To() által produkált glcdfont-specifikus kódok nem értelmezhetők. */
+  if (_gfxFont) {
+    if (_uppercase)
+      yoUtf8ToUpper(_text, txt, _buffsize);
+    else
+      strlcpy(_text, txt, _buffsize);
+  } else
+    strlcpy(_text, utf8To(txt, _uppercase), _buffsize);
+  _textwidth = _measureText(_text);
   if (strcmp(_oldtext, _text) == 0) return;
   if (_active) dsp.fillRect(_oldleft == 0 ? _realLeft() : min(_oldleft, _realLeft()),  _config.top, max(_oldtextwidth, _textwidth), _textheight, _bgcolor);
   _oldtextwidth = _textwidth;
@@ -306,10 +342,21 @@ uint16_t TextWidget::_realLeft(bool w_fb) {
 void TextWidget::_draw() {
   if(!_active) return;
   dsp.setTextColor(_fgcolor, _bgcolor);
-  dsp.setCursor(_realLeft(), _config.top);
+#ifndef DSP_LCD
+  if (_gfxFont) {
+    yoApplyFont(dsp, _gfxFont);
+    dsp.setCursor(_realLeft(), _baselineY());
+  } else {
+    dsp.setFont();
+    dsp.setTextSize(_config.textsize > 0 ? _config.textsize : 1);
+    dsp.setCursor(_realLeft(), _config.top);
+  }
+#else
   dsp.setFont();
   dsp.setTextSize(_config.textsize);
-  dsp.print(_text);
+  dsp.setCursor(_realLeft(), _config.top);
+#endif
+  if (_gfxFont) yoPrintUtf8(dsp, _text, _fgcolor, _bgcolor, _gfxFont); else dsp.print(_text);
   strlcpy(_oldtext, _text, _buffsize);
 }
 
@@ -341,6 +388,28 @@ uint16_t ScrollWidget::_winLeft(bool fb) const {
   }
 }
 
+/* ── ScrollWidget pixel-szélesség mérés ──────────────────────────────────── */
+uint16_t ScrollWidget::_pixelTextWidth(const char* txt) {
+#ifndef DSP_LCD
+  if (_gfxFont) return yoStringWidth(_gfxFont, txt);
+#endif
+  return strlen(txt) * _charWidth;
+}
+
+/* ── Font alkalmazása dsp-re vagy fb-re ─────────────────────────────────── */
+void ScrollWidget::_applyFont(Adafruit_GFX& gfx) {
+#ifndef DSP_LCD
+  if (_gfxFont) {
+    yoApplyFont(gfx, _gfxFont);
+  } else {
+    gfx.setFont();
+    gfx.setTextSize(_config.textsize);
+  }
+#else
+  gfx.setTextSize(_config.textsize);
+#endif
+}
+
 void ScrollWidget::init(const char* separator, ScrollConfig conf, uint16_t fgcolor, uint16_t bgcolor) {
   TextWidget::init(conf.widget, conf.buffsize, conf.uppercase, fgcolor, bgcolor);
   _sep = (char *) malloc(sizeof(char) * 4);
@@ -350,11 +419,19 @@ void ScrollWidget::init(const char* separator, ScrollConfig conf, uint16_t fgcol
   _scrolldelta      = conf.scrolldelta;
   _scrolltime       = conf.scrolltime;
   _charSize(_config.textsize, _charWidth, _textheight);
-  _sepwidth = strlen(_sep) * _charWidth;
+
+  /* FreeSans: ScrollWidget-nél a textsize 2 és 3 → közepes/nagy bold font */
+#ifndef DSP_LCD
+  _gfxFont = yoScrollFont(_config.textsize);
+  if (_gfxFont) _textheight = yoFontHeight(_gfxFont);
+#endif
+
+  _sepwidth = _pixelTextWidth(_sep);
   _width = conf.width;
   _backMove.width = _width;
-  _window = (char *) malloc(sizeof(char) * (MAX_WIDTH / _charWidth + 1));
-  memset(_window, 0, (MAX_WIDTH / _charWidth + 1));
+  /* _window mérete: a konfig-szélességnél biztosan elég, +4 biztonsági */
+  _window = (char *) malloc(sizeof(char) * (conf.buffsize + 4));
+  memset(_window, 0, conf.buffsize + 4);
   _doscroll = false;
   const uint16_t wl  = _winLeft(false);
   const uint16_t fbl = _fb && _fb->ready() ? 0 : wl;
@@ -371,11 +448,11 @@ void ScrollWidget::_setTextParams() {
   if (_config.textsize == 0) return;
   if(_fb->ready()){
   #ifdef PSFBUFFER
-    _fb->setTextSize(_config.textsize);
+    _applyFont(*_fb);
     _fb->setTextColor(_fgcolor, _bgcolor);
   #endif
   }else{
-    dsp.setTextSize(_config.textsize);
+    _applyFont(dsp);
     dsp.setTextColor(_fgcolor, _bgcolor);
   }
 }
@@ -385,10 +462,16 @@ bool ScrollWidget::_checkIsScrollNeeded() {
 }
 
 void ScrollWidget::setText(const char* txt) {
-  strlcpy(_text, utf8To(txt, _uppercase), _buffsize - 1);
+  if (_gfxFont) {
+    if (_uppercase)
+      yoUtf8ToUpper(_text, txt, _buffsize - 1);
+    else
+      strlcpy(_text, txt, _buffsize - 1);
+  } else
+    strlcpy(_text, utf8To(txt, _uppercase), _buffsize - 1);
   if (strcmp(_oldtext, _text) == 0) return;
 
-  _textwidth = strlen(_text) * _charWidth;
+  _textwidth = _pixelTextWidth(_text);
 
   const uint16_t wl  = _winLeft(false);
   const uint16_t fbl = _fb->ready() ? 0 : wl;
@@ -405,35 +488,32 @@ void ScrollWidget::setText(const char* txt) {
 #ifdef PSFBUFFER
       if (_fb->ready()) {
         _fb->fillRect(0, 0, _width, _textheight, _bgcolor);
-        _fb->setCursor(0, 0);
-        snprintf(_window, _width / _charWidth + 1, "%s", _text); // első ablak
-        _fb->print(_window);
+        _fb->setCursor(0, _gfxFont ? yoBaselineOffset(_gfxFont) : 0);
+        if (_gfxFont) yoPrintUtf8(*_fb, _text, _fgcolor, _bgcolor, _gfxFont); else _fb->print(_text);
         _fb->display();
       } else
 #endif
       {
         dsp.fillRect(wl, _config.top, _width, _textheight, _bgcolor);
-        // első ablakot kiírjuk, clippinggel
         dsp.setClipping({wl, _config.top, _width, _textheight});
-        dsp.setCursor(wl, _config.top);  // első pozíció: window bal széle
-        snprintf(_window, _width / _charWidth + 1, "%s", _text);
-        dsp.print(_window);
+        dsp.setCursor(wl, _config.top + (_gfxFont ? yoBaselineOffset(_gfxFont) : 0));
+        if (_gfxFont) yoPrintUtf8(dsp, _text, _fgcolor, _bgcolor, _gfxFont); else dsp.print(_text);
         dsp.clearClipping();
       }
     } else {
 #ifdef PSFBUFFER
       if (_fb->ready()) {
         _fb->fillRect(0, 0, _width, _textheight, _bgcolor);
-        _fb->setCursor(_realLeft(true), 0);
-        _fb->print(_text);
+        _fb->setCursor(_realLeft(true), _gfxFont ? yoBaselineOffset(_gfxFont) : 0);
+        if (_gfxFont) yoPrintUtf8(*_fb, _text, _fgcolor, _bgcolor, _gfxFont); else _fb->print(_text);
         _fb->display();
       } else
 #endif
       {
         dsp.fillRect(wl, _config.top, _width, _textheight, _bgcolor);
-        dsp.setCursor(_realLeft(), _config.top);  // TextWidget kezeli az igazítást
+        dsp.setCursor(_realLeft(), _config.top + (_gfxFont ? yoBaselineOffset(_gfxFont) : 0));
         dsp.setClipping({wl, _config.top, _width, _textheight});
-        dsp.print(_text);
+        if (_gfxFont) yoPrintUtf8(dsp, _text, _fgcolor, _bgcolor, _gfxFont); else dsp.print(_text);
         dsp.clearClipping();
       }
     }
@@ -481,52 +561,41 @@ void ScrollWidget::_draw() {
 
   const uint16_t wl  = _winLeft(false);
   const uint16_t fbl = _fb->ready() ? 0 : wl;
+  /* GFXfont módban a baseline offset kell a setCursor Y-hoz */
+  const int16_t baseOff = _gfxFont ? yoBaselineOffset(_gfxFont) : 0;
 
   if (_doscroll) {
-    uint16_t _newx = fbl - _x;
-    const char* _cursor = _text + _newx / _charWidth;
-    uint16_t hiddenChars = _cursor - _text;
-    uint8_t addChars = _fb->ready() ? 2 : 1;
-
-    if (hiddenChars < strlen(_text)) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-truncation="
-      snprintf(_window, _width / _charWidth + addChars, "%s%s%s", _cursor, _sep, _text);
-#pragma GCC diagnostic pop
-    } else {
-      const char* _scursor = _sep + (_cursor - (_text + strlen(_text)));
-      snprintf(_window, _width / _charWidth + addChars, "%s%s", _scursor, _text);
-    }
+    /* Pixel-alapú scroll: ha a psFrameBuffer épp nem ready (realloc alatt),
+       skip – töredékes dsp-re rajzolás helyett inkább kihagyunk egy ticket */
+    if (!_fb->ready()) return;
     if (_fb->ready()) {
 #ifdef PSFBUFFER
       _fb->fillRect(0, 0, _width, _textheight, _bgcolor);
-      _fb->setCursor(_x + hiddenChars * _charWidth, 0);
-      _fb->print(_window);
+      _fb->setCursor(_x, baseOff);
+      if (_gfxFont) { yoPrintUtf8(*_fb, _text, _fgcolor, _bgcolor, _gfxFont); yoPrintUtf8(*_fb, _sep, _fgcolor, _bgcolor, _gfxFont); yoPrintUtf8(*_fb, _text, _fgcolor, _bgcolor, _gfxFont); }
+      else          { _fb->print(_text); _fb->print(_sep); _fb->print(_text); }
       _fb->display();
 #endif
     } else {
       dsp.setClipping({wl, _config.top, _width, _textheight});
-      // kurzor: window bal (wl) + lokális eltolás (_x - fbl) + rejtett karakterek szélessége
-      dsp.setCursor(wl + (_x - fbl) + hiddenChars * _charWidth, _config.top);
-      dsp.print(_window);
-#ifndef DSP_LCD
-      dsp.print(" ");
-#endif
+      dsp.setCursor(wl + (_x - fbl), _config.top + baseOff);
+      if (_gfxFont) { yoPrintUtf8(dsp, _text, _fgcolor, _bgcolor, _gfxFont); yoPrintUtf8(dsp, _sep, _fgcolor, _bgcolor, _gfxFont); yoPrintUtf8(dsp, _text, _fgcolor, _bgcolor, _gfxFont); }
+      else          { dsp.print(_text); dsp.print(_sep); dsp.print(_text); }
       dsp.clearClipping();
     }
   } else {
     if (_fb->ready()) {
 #ifdef PSFBUFFER
       _fb->fillRect(0, 0, _width, _textheight, _bgcolor);
-      _fb->setCursor(_realLeft(true), 0);
-      _fb->print(_text);
+      _fb->setCursor(_realLeft(true), baseOff);
+      if (_gfxFont) yoPrintUtf8(*_fb, _text, _fgcolor, _bgcolor, _gfxFont); else _fb->print(_text);
       _fb->display();
 #endif
     } else {
       dsp.fillRect(wl, _config.top, _width, _textheight, _bgcolor);
-      dsp.setCursor(_realLeft(), _config.top);
+      dsp.setCursor(_realLeft(), _config.top + baseOff);
       dsp.setClipping({wl, _config.top, _width, _textheight});
-      dsp.print(_text);
+      if (_gfxFont) yoPrintUtf8(dsp, _text, _fgcolor, _bgcolor, _gfxFont); else dsp.print(_text);
       dsp.clearClipping();
     }
   }
@@ -540,7 +609,8 @@ void ScrollWidget::_calcX() {
   const uint16_t wl  = _winLeft(false);
   const uint16_t fbl = _fb->ready() ? 0 : wl;
 
-  if (-_x > _textwidth + _sepwidth - fbl) {
+  /* _textwidth és _sepwidth már pixelben van → az összehasonlítás helyes */
+  if (-_x > (int16_t)(_textwidth + _sepwidth) - (int16_t)fbl) {
     _x = fbl;
     dsp.setScrollId(NULL);
   } else {
@@ -563,12 +633,21 @@ void ScrollWidget::setWindowWidth(uint16_t w) {
 
   _width = w;
   _backMove.width = _width;
+  /* pixel-alapú újraszámítás */
+  _sepwidth = _pixelTextWidth(_sep);
+  _textwidth = _pixelTextWidth(_text);
 
 #ifdef PSFBUFFER
   if (_fb) {
-    _fb->freeBuffer();
     const uint16_t wl = _winLeft(false);
-    _fb->begin(&dsp, wl, _config.top, _width, _textheight, _bgcolor);
+    if (_fb->ready() && _fb->width() == (int16_t)_width && _fb->height() == (int16_t)_textheight) {
+      // Méret nem változott: csak pozíció frissítés, vibrálásmentes
+      _fb->reposition(wl, _config.top);
+    } else {
+      // Méret változott: újraallokálás szükséges
+      _fb->freeBuffer();
+      _fb->begin(&dsp, wl, _config.top, _width, _textheight, _bgcolor);
+    }
   }
 #endif
 
@@ -582,6 +661,10 @@ void ScrollWidget::setWindowWidth(uint16_t w) {
 void ScrollWidget::_reset(){
   dsp.setScrollId(NULL);
 
+  /* pixel-alapú frissítés */
+  _textwidth = _pixelTextWidth(_text);
+  _sepwidth  = _pixelTextWidth(_sep);
+
   const uint16_t wl  = _winLeft(false);
   const uint16_t fbl = _fb->ready() ? 0 : wl;
   _x = fbl;
@@ -590,8 +673,13 @@ void ScrollWidget::_reset(){
   _doscroll = _checkIsScrollNeeded();
 
 #ifdef PSFBUFFER
-  _fb->freeBuffer();
-  _fb->begin(&dsp, wl, _config.top, _width, _textheight, _bgcolor);
+  if (_fb->ready() && _fb->width() == (int16_t)_width && _fb->height() == (int16_t)_textheight) {
+    // Méret nem változott: csak pozíció frissítés, vibrálásmentes
+    _fb->reposition(wl, _config.top);
+  } else {
+    _fb->freeBuffer();
+    _fb->begin(&dsp, wl, _config.top, _width, _textheight, _bgcolor);
+  }
 #endif
 }
 
@@ -715,14 +803,14 @@ void VuWidget::_drawLabelsVertical(int x, int y, int h, int labelSize) {
   // L
   int boxY = y;
   _canvas->fillRect(boxX, boxY, boxW, h, bg);
-  #if DSP_MODEL != DSP_ST7735
+  #if (DSP_MODEL != DSP_ST7735) && (DSP_MODEL != DSP_ST7789_170)
   _drawCenteredCharInBox(_canvas, boxX, boxY, boxW, h, 'L');
   #endif
 
   // R
   boxY = y + h + _bands.space;
   _canvas->fillRect(boxX, boxY, boxW, h, bg);
-  #if DSP_MODEL != DSP_ST7735
+  #if (DSP_MODEL != DSP_ST7735) && (DSP_MODEL != DSP_ST7789_170)
   _drawCenteredCharInBox(_canvas, boxX, boxY, boxW, h, 'R');
   #endif
 }
@@ -993,7 +1081,7 @@ void VuWidget::_draw() {
   if (measL > (uint16_t)g.scaleDim) measL = (uint16_t)g.scaleDim;
   if (measR > (uint16_t)g.scaleDim) measR = (uint16_t)g.scaleDim;
 
-#if DSP_MODEL == DSP_ST7735
+#if DSP_MODEL == DSP_ST7735 || DSP_MODEL == DSP_ST7789_170
   const int peakWidth = 2;
 #else
   const int peakWidth = 4;
@@ -1376,19 +1464,20 @@ void ProgressWidget::loop() {
 void ClockWidget::init(WidgetConfig wconf, uint16_t fgcolor, uint16_t bgcolor){
   Widget::init(wconf, fgcolor, bgcolor);
   _timeheight = _textHeight();
-  _fullclock = TIME_SIZE>35 || DSP_MODEL==DSP_ILI9225 || DSP_MODEL==DSP_ST7789_170 || DSP_MODEL==DSP_ST7735 || DSP_MODEL == DSP_ST7789 || DSP_MODEL==DSP_ILI9341;
+  _fullclock = TIME_SIZE>35 || DSP_MODEL==DSP_ILI9225 || DSP_MODEL==DSP_ST7789_170 || DSP_MODEL==DSP_ST7789_76 || DSP_MODEL==DSP_ST7735 || DSP_MODEL == DSP_ST7789 || DSP_MODEL==DSP_ILI9341;
 /*#if DSP_MODEL == DSP_ST7789 || DSP_MODEL==DSP_ILI9341
     if (config.store.vuLayout != 0) {
         _fullclock = false;
     }
 #endif*/
-  if(_fullclock) _superfont = TIME_SIZE / 17; //magick
+  // _superfont: csak kompatibilitáshoz marad, fullclock esetén mindig 1
+  if(_fullclock) _superfont = 1;
   else if(TIME_SIZE==19 || TIME_SIZE==2) _superfont=1;
   else _superfont=0;
-  _space = (5*_superfont)/2; //magick
+  _space = _fullclock ? 4 : (5*_superfont)/2;
   #ifndef HIDE_DATE
   if(_fullclock){
-    _dateheight = _superfont<4?1:2;
+    _dateheight = 1;  // dátum sor: DejaVuSans8 = 1 sor
     _clockheight = _timeheight + _space + CHARHEIGHT * _dateheight;
   } else {
     _clockheight = _timeheight;
@@ -1437,12 +1526,26 @@ uint16_t ClockWidget::_top(){
 
 void ClockWidget::_getTimeBounds() {
   _timewidth = _textWidth(_timebuffer);
-  uint8_t fs = _superfont>0?_superfont:TIME_SIZE;
-  uint16_t rightside = CHARWIDTH * fs * 2; // seconds
   if(_fullclock){
-    rightside += _space*2+1; //2space+vline
-    _clockwidth = _timewidth+rightside;
+    // Jobb oldal: kis font szélessége "88"-ra + space
+    const uint8_t fid2 = clockfont_clamp_id(config.store.clockFontId);
+    const GFXfont* sf2 = clockfont_get_small(fid2);
+    const GFXfont* sf2eff = (sf2 != nullptr) ? sf2 : yoScrollFont(0);
+    int16_t tbx2; int16_t tby2; uint16_t tbw2; uint16_t tbh2;
+    dsp.setFont(sf2eff); dsp.setTextSize(1);
+    dsp.getTextBounds("88", 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
+    dsp.setFont();
+    uint16_t rightside = (uint16_t)tbw2 + _space * 2;
+    // 12h módban az AM/PM is helyet foglal – ha szélesebb mint "88", azt vesszük
+    if (config.store.hours12) {
+      const GFXfont* amf = yoScrollFont(0);
+      uint16_t ampmW = yoStringWidth(amf, "AM");  // "AM"≈"PM" szélesség
+      if (ampmW > (uint16_t)tbw2) rightside = ampmW + _space * 2;
+    }
+    _clockwidth = _timewidth + rightside;
   } else {
+    uint8_t fs = _superfont>0?_superfont:TIME_SIZE;
+    uint16_t rightside = CHARWIDTH * fs * 2;
     if(_superfont==0)
       _clockwidth = _timewidth;
     else
@@ -1482,14 +1585,8 @@ void ClockWidget::_printClock(bool force){
   //const int16_t timeTop         = _top() - _timeheight;
   const int16_t timeWidthLive   = _textWidth(_timebuffer);
   //const int16_t vlineX          = timeLeft + timeWidthLive + _space;
-  const int16_t colTop    = _top() - _timeheight;
-  const int16_t colBottom = _top();
-  const int16_t colCenter = (colTop + colBottom) / 2;
-  const int16_t secCellH  = CHARHEIGHT * _superfont;
-  const int16_t secBaseY = colCenter - (secCellH / 2);
-  const int16_t secLeftFull    = timeLeft + timeWidthLive + _space*2;
-  
-  int16_t divY = -1;
+  // secLeftFull: az óra jobb széle + space, ide kerül a másodperc
+  const int16_t secLeftFull = timeLeft + timeWidthLive + _space;
   
   static const GFXfont* s_lastPrintFont = nullptr;
   if (Clock_GFXfontPtr != s_lastPrintFont) {
@@ -1540,91 +1637,10 @@ void ClockWidget::_printClock(bool force){
     gfx.print(_timebuffer);
   }
 
- /*   if(_fullclock){
-      // lines, date & dow
-      bool fullClockOnScreensaver = (!config.isScreensaver || (_fb->ready() && FULL_SCR_CLOCK));
-      _linesleft = _left()+_timewidth+_space;
-      if(fullClockOnScreensaver){
-int16_t hlineBaseY = secBaseY + secCellH;
-if (hlineBaseY >= _top()) hlineBaseY = _top() - 1;
-
-if (config.store.hours12) {
-
-  // függőleges elválasztó (marad, ahogy volt)
-  gfx.drawFastVLine(_linesleft, secBaseY - 5, _top() - secBaseY + 10, config.theme.div);
-  gfx.setFont();
-
-  // ---- VÍZSZINTES VONAL Y KISZÁMÍTÁSA (EGY HELYEN!) ----
-  int16_t yLine;
-  int16_t ampmTextY;
-  uint8_t ampmTextSize;
-
-  if (TIME_SIZE == 19) {
-    yLine        = hlineBaseY + _space/2 - 8;
-    ampmTextY    = hlineBaseY + CHARHEIGHT - 8;
-    ampmTextSize = 1;
-  } else {
-    yLine        = hlineBaseY + _space/2 - 8;
-    ampmTextY    = hlineBaseY +
-                   (TIME_SIZE == 70 ? CHARHEIGHT - 2 :
-                    TIME_SIZE == 52 ? CHARHEIGHT - 8 :
-                                      CHARHEIGHT - 12);
-    ampmTextSize = 2;
-  }
-
-  // ---- VONAL RAJZOLÁS + ELMENTÉS ----
-  gfx.drawFastHLine(_linesleft, yLine, CHARWIDTH * _superfont * 2 + _space + 15, config.theme.div);
-  divY = yLine; 
-
-  // ---- AM / PM FELIRAT ----
-  gfx.setCursor(_linesleft + _space + 1, ampmTextY);
-  gfx.setTextSize(ampmTextSize);
-  gfx.setTextColor(config.theme.dow, config.theme.background);
-
-  char buf[3];
-  strftime(buf, sizeof(buf), "%p", &network.timeinfo);
-  gfx.print(buf);
-
-} else { // ----- 24 ÓRÁS NÉZET -----
-
-  gfx.drawFastVLine(
-    _linesleft,
-    secBaseY,
-    _top() - secBaseY,
-    config.theme.div
-  );
-
-  int16_t yLine = hlineBaseY + _space/2;
-
-  gfx.drawFastHLine(
-    _linesleft,
-    yLine,
-    CHARWIDTH * _superfont * 2 + _space,
-    config.theme.div
-  );
-  divY = yLine;   // itt is eltároljuk, egységesen
-
-}
-
-        formatDateCustom(_tmp, sizeof(_tmp), ti, config.store.dateFormat);
-        #ifndef HIDE_DATE
-        strlcpy(_datebuf, utf8To(_tmp, true), sizeof(_datebuf));
-        uint16_t _datewidth = strlen(_datebuf) * CHARWIDTH*_dateheight;
-        gfx.setTextSize(_dateheight);
-        #if DSP_MODEL==DSP_GC9A01A || DSP_MODEL==DSP_GC9A01 || DSP_MODEL==DSP_GC9A01_I80
-        gfx.setCursor((dsp.width()-_datewidth)/2, _top() + _space);
-        #else
-        gfx.setCursor(_left()+_clockwidth-_datewidth, _top() + _space);
-        #endif
-        gfx.setTextColor(config.theme.date, config.theme.background);
-        gfx.print(_datebuf);
-        #endif
-      }
-    }*/
-  }
+  } // if(force)
 
 // ------------------------------------------------------------
-// FULLCLOCK: vonalak + AM/PM (vagy 24h) + dátum
+// FULLCLOCK: AM/PM (12h esetén) + dátum  [vonalak eltávolítva]
 // ------------------------------------------------------------
 if (_fullclock) {
   bool fullClockOnScreensaver = (!config.isScreensaver || (_fb->ready() && FULL_SCR_CLOCK));
@@ -1632,83 +1648,68 @@ if (_fullclock) {
 
   if (fullClockOnScreensaver) {
 
-    int16_t hlineBaseY = secBaseY + secCellH;
-    if (hlineBaseY >= _top()) hlineBaseY = _top() - 1;
+    // 12 órás mód: AM/PM felirat a másodperc FÖLÉ, DejaVuSans8 fix fonttal
+    if (config.store.hours12) {
+      #if TIME_SIZE==19
+      const GFXfont* ampmFont = yoScrollFont(0); // DejaVuSans8 – fix
+      #elif TIME_SIZE==35
+      const GFXfont* ampmFont = yoScrollFont(0); // DejaVuSans8 – fix
+      #elif TIME_SIZE==52
+      const GFXfont* ampmFont = yoScrollFont(5); // DejaVuSans8 – fix
+      #elif TIME_SIZE==70
+      const GFXfont* ampmFont = yoScrollFont(1); // DejaVuSans8 – fix
+      #endif
+      
+      uint8_t ampmH   = yoFontHeight(ampmFont);
+//      int16_t ampmBaseOff = yoBaselineOffset(ampmFont);
 
-if (config.store.hours12) {
-    // függőleges elválasztó (marad)
-    gfx.drawFastVLine(_linesleft, secBaseY - 5, _top() - secBaseY + 10, config.theme.div);
+      // AM/PM: a buffer/képernyő tetejére igazítva, X = _linesleft (space nélkül)
+      #if TIME_SIZE==19
+      int16_t ampmY = _top()-11; // az óra baseline-jával azonos szint
+      #elif TIME_SIZE==35
+      int16_t ampmY = _top()-21; // az óra baseline-jával azonos szint
+      #elif TIME_SIZE==52
+      int16_t ampmY = _top()-40; // az óra baseline-jával azonos szint
+      #elif TIME_SIZE==70
+      int16_t ampmY = _top()-55; // az óra baseline-jával azonos szint
+      #endif
+      int16_t ampmX = _linesleft;
 
-    gfx.setFont();
-
-    // ---- VÍZSZINTES VONAL + AM/PM szöveg pozíció (EGY HELYEN) ----
-    int16_t yLine = 0;
-    int16_t ampmTextY = 0;
-    uint8_t ampmTextSize = 2;
-
-    if (TIME_SIZE == 19) {
-      yLine        = hlineBaseY + _space/2 - 4;
-      ampmTextY    = hlineBaseY + CHARHEIGHT - 8;
-      ampmTextSize = 1;
-    } else if (TIME_SIZE == 70) {
-      yLine        = hlineBaseY + _space/2 - 8;
-      ampmTextY    = hlineBaseY + CHARHEIGHT - 2;
-      ampmTextSize = 2;
-    } else if (TIME_SIZE == 52) {
-      yLine        = hlineBaseY + _space/2 - 8;
-      ampmTextY    = hlineBaseY + CHARHEIGHT - 8;
-      ampmTextSize = 2;
-    } else { // pl. 35, stb.
-      yLine        = hlineBaseY + _space/2 - 8;
-      ampmTextY    = hlineBaseY + CHARHEIGHT - 12;
-      ampmTextSize = 2;
+      gfx.setTextColor(config.theme.dow, config.theme.background);
+      char buf[3];
+      strftime(buf, sizeof(buf), "%p", &network.timeinfo);
+      gfx.fillRect(ampmX, 0, yoStringWidth(ampmFont, "AM") + 2, ampmH + 1, config.theme.background);
+      gfx.setFont(ampmFont); gfx.setTextSize(1);
+      gfx.setCursor(ampmX, ampmY);
+      yoPrintUtf8(gfx, buf, config.theme.dow, config.theme.background, ampmFont);
     }
 
-    // vonal rajzolás + divY mentése
-    gfx.drawFastHLine(_linesleft, yLine, CHARWIDTH * _superfont * 2 + _space + 15, config.theme.div);
-    divY = yLine;
-
-    // AM/PM felirat
-    gfx.setCursor(_linesleft + _space + 1, ampmTextY);
-    gfx.setTextSize(ampmTextSize);
-    gfx.setTextColor(config.theme.dow, config.theme.background);
-
-    char buf[3];
-    strftime(buf, sizeof(buf), "%p", &network.timeinfo);
-    gfx.print(buf);
-
-} else {
-    // 24 órás
-    gfx.drawFastVLine(_linesleft, secBaseY, _top() - secBaseY, config.theme.div);
-
-    const int16_t yLine = hlineBaseY + _space/2;
-    gfx.drawFastHLine(_linesleft, yLine, CHARWIDTH * _superfont * 2 + _space, config.theme.div);
-    divY = yLine;
-}
-
-    // dátum (ha nincs HIDE_DATE)
+    // Dátum (ha nincs HIDE_DATE)
     formatDateCustom(_tmp, sizeof(_tmp), ti, config.store.dateFormat);
 #ifndef HIDE_DATE
-    strlcpy(_datebuf, utf8To(_tmp, true), sizeof(_datebuf));
-    uint16_t _datewidth = strlen(_datebuf) * CHARWIDTH * _dateheight;
-    gfx.setTextSize(_dateheight);
+    strlcpy(_datebuf, _tmp, sizeof(_datebuf));
+    uint16_t _datewidth = yoStringWidth(&DejaVuSans8_HU, _datebuf);
+    dsp.setFont(&DejaVuSans8_HU);
+    dsp.setTextSize(1);
+    int16_t _dateY2 = _top() + _space + yoBaselineOffset(&DejaVuSans8_HU);
 #if DSP_MODEL==DSP_GC9A01A || DSP_MODEL==DSP_GC9A01 || DSP_MODEL==DSP_GC9A01_I80
-    gfx.setCursor((dsp.width() - _datewidth) / 2, _top() + _space);
+    dsp.setCursor((dsp.width() - _datewidth) / 2, _dateY2);
 #else
-    gfx.setCursor(_left() + _clockwidth - _datewidth, _top() + _space);
+    dsp.setCursor(_left() + _clockwidth - _datewidth, _dateY2);
 #endif
-    gfx.setTextColor(config.theme.date, config.theme.background);
-    gfx.print(_datebuf);
+    dsp.setTextColor(config.theme.date, config.theme.background);
+    yoPrintUtf8(dsp, _datebuf, config.theme.date, config.theme.background, &DejaVuSans8_HU);
+    dsp.setFont();
 #endif
   }
 }
 
 // ------------------------------------------------------------
-// SECONDS: GFX small font + törlés a divY-ig clampelve
+// SECONDS: kis órafont, az óra baseline-jával vízszintesen igazítva
 // ------------------------------------------------------------
 if (_fullclock || _superfont > 0) {
 
-  // seconds érték
+  // Másodperc értéke (kis simítással visszaugrás ellen)
   int sec = ti.tm_sec;
   if (_lastSec >= 0) {
     int diff = sec - _lastSec;
@@ -1718,117 +1719,47 @@ if (_fullclock || _superfont > 0) {
   sprintf(_tmp, "%02d", sec);
 
   const uint8_t fid = clockfont_clamp_id(config.store.clockFontId);
-  const GFXfont* secFont = clockfont_get_small(fid);
+  const GFXfont* secFont    = clockfont_get_small(fid);
+  const GFXfont* secFontFinal = (secFont != nullptr) ? secFont : yoScrollFont(0);
+  const int8_t   secBl      = clockfont_baseline_small(fid);
 
-  // 🔑 TIME_SIZE==19: mindig fallback (túl kicsi a glyph-özéshez)
-  const bool forceFallback19 = (TIME_SIZE == 19);
-  const bool useGfxSecFont   = (!forceFallback19 && secFont != nullptr);
+  // "88" bounding box a pontos szélességhez és x-igazításhoz
+  int16_t tbx, tby; uint16_t tbw, tbh;
+  gfx.setFont(secFontFinal);
+  gfx.setTextSize(1);
+  gfx.getTextBounds("88", 0, 0, &tbx, &tby, &tbw, &tbh);
 
-  int16_t x = secLeftFull;
-  int16_t y = secBaseY;
+  // X: secLeftFull-tól középre igazítva a "88" szélességéhez
+  int16_t x = secLeftFull - tbx;
 
-  // cella méret (fallback alap)
-  int16_t secCellW = CHARWIDTH * _superfont * 2;
+  // Y: az óra baseline-jával azonos vonal
+  // _top() az óra baseline koordinátája a GFX rendszerben
+  int16_t y = _top() + secBl;
 
-  // --- Pozíció: GFXfont esetén (CSAK ha nem TIME_SIZE==19) ---
-  if (useGfxSecFont) {
-    int8_t bl = clockfont_baseline_small(fid);
+  // Törlési terület: a kis font teljes magassága felett és alatt
+  int16_t clearTop = _top() - (int16_t)tbh - 2;
+  int16_t clearH   = (int16_t)tbh + 4;
+  if (clearTop < 0) { clearH += clearTop; clearTop = 0; }
 
-    // Y pozíció (baseline)
-    y = secBaseY + secCellH + bl - 2;
-if (config.store.hours12) {
-    y -= 7;
-}
+  gfx.fillRect(secLeftFull - 2, clearTop, (int16_t)tbw + tbx + 4, clearH, config.theme.background);
 
-    // "88" bounding box (szélesség + tbx kompenzáció)
-    int16_t tbx, tby;
-    uint16_t tbw, tbh;
-
-    gfx.setFont(secFont);
-    gfx.setTextSize(1);
-    gfx.getTextBounds("88", 0, 0, &tbx, &tby, &tbw, &tbh);
-
-    // secCellW maradhat a fallback szélesség (fix cella), csak x-et számoljuk abból
-    // (ha te nálad jobb, hogy tbw legyen a cella, itt átírhatod: secCellW = tbw;)
-    x = secLeftFull + (secCellW - (int16_t)tbw) / 2 - tbx;
-  } else {
-    // --- Fallback (ide tartozik a TIME_SIZE==19 trükk) ---
-    // Itt tedd meg azt az X ofszetet, ami "tökéletes lett" nálad:
-    // (példa: picit balra húzom)
-    if (forceFallback19) {
-      x = secLeftFull + 1;   // <-- EZT az értéket hagyd azon, ami nálad bevált (pl. +1 / 0 / -1)
-    }
-  }
-
-  // --- TÖRLÉS: clamp a divY-ig ---
-  const int16_t clearAbove = secCellH / 2;
-  const int16_t clearBelow = secCellH;
-
-  int16_t clearTop    = secBaseY - clearAbove;
-  int16_t clearBottom = secBaseY + clearBelow;
-
-  if (divY >= 0 && clearBottom >= divY) {
-    clearBottom = divY - 1;
-  }
-  const int16_t clearH = clearBottom - clearTop;
-
-  if (clearH > 0) {
-
-    // 🔑 TIME_SIZE==19 fallback: ne terjeszd balra (ne törölj bele az órába / függőleges vonalba)
-    if (forceFallback19) {
-      const int16_t PAD_R = 6;   // csak jobbra bővítünk
-      gfx.fillRect(
-        secLeftFull,
-        clearTop,
-        secCellW + PAD_R,
-        clearH,
-        config.theme.background
-      );
-    } else {
-      // Normál (glyph vagy nem-19 fallback): eredeti, "szűk" törlés
-      gfx.fillRect(
-        secLeftFull-2,
-        clearTop,
-        secCellW+4,
-        clearH,
-        config.theme.background
-      );
-    }
-  }
-
-  // --- MONO maszk "88" (ha kell) ---
+  // Mono maszk "88"
   if (config.store.clockFontMono) {
     gfx.setTextColor(config.theme.clockbg, config.theme.background);
-
-    if (useGfxSecFont) {
-      gfx.setFont(secFont);
-      gfx.setTextSize(1);
-      gfx.setCursor(x, y);
-      gfx.print("88");
-    } else {
-      gfx.setFont();
-      gfx.setTextSize(_superfont);
-      gfx.setCursor(x, secBaseY);
-      gfx.print("88");
-    }
+    gfx.setFont(secFontFinal);
+    gfx.setTextSize(1);
+    gfx.setCursor(x, y);
+    gfx.print("88");
   }
 
-  // --- valódi seconds ---
+  // Valódi másodperc
   gfx.setTextColor(
     config.theme.seconds,
     config.store.clockFontMono ? config.theme.clockbg : config.theme.background
   );
-
-  if (useGfxSecFont) {
-    gfx.setFont(secFont);
-    gfx.setTextSize(1);
-    gfx.setCursor(x, y);
-  } else {
-    gfx.setFont();
-    gfx.setTextSize(_superfont);
-    gfx.setCursor(x, secBaseY);
-  }
-
+  gfx.setFont(secFontFinal);
+  gfx.setTextSize(1);
+  gfx.setCursor(x, y);
   gfx.print(_tmp);
 }
 
@@ -1991,8 +1922,11 @@ void BitrateWidget::_draw() {
     dsp.drawRect(_config.left, _config.top, boxW, boxH, _fgcolor);
     dsp.fillRect(_config.left + _dimension, _config.top, _dimension, boxH, _fgcolor);
 
-    dsp.setFont();
-    dsp.setTextSize(_config.textsize);
+    const GFXfont* _bfont = &DejaVuSans8_HU;
+    uint8_t _bfontH = yoFontHeight(_bfont);
+    int16_t _bbaseOff = yoBaselineOffset(_bfont);
+    dsp.setFont(_bfont);
+    dsp.setTextSize(1);
     dsp.setTextColor(_fgcolor, _bgcolor);
 
     // --- Bitrate string ---
@@ -2004,12 +1938,11 @@ void BitrateWidget::_draw() {
     // Bitrate középre → BAL blokk
     uint16_t leftX = _config.left;
     uint16_t centerX = leftX + (_dimension / 2);
-    uint16_t textW = strlen(_buf) * _charWidth;
-    uint16_t textH = _textheight;
+    uint16_t textW = yoStringWidth(_bfont, _buf);
 
     dsp.setCursor(centerX - textW/2,
-                  _config.top + boxH/2 - textH/2);
-    dsp.print(_buf);
+                  _config.top + boxH/2 - _bfontH/2 + _bbaseOff);
+    yoPrintUtf8(dsp, _buf, _fgcolor, _bgcolor, _bfont);
 
     // --- Formátum → JOBB blokk ---
     dsp.setTextColor(_bgcolor, _fgcolor);
@@ -2027,11 +1960,12 @@ void BitrateWidget::_draw() {
     }
 
     uint16_t rightCenterX = _config.left + _dimension + (_dimension/2);
-    uint16_t fmtW = strlen(fmt) * _charWidth;
+    uint16_t fmtW = yoStringWidth(_bfont, fmt);
 
     dsp.setCursor(rightCenterX - fmtW/2,
-                  _config.top + boxH/2 - textH/2);
-    dsp.print(fmt);
+                  _config.top + boxH/2 - _bfontH/2 + _bbaseOff);
+    yoPrintUtf8(dsp, fmt, _bgcolor, _fgcolor, _bfont);
+    dsp.setFont();
 }
 
 void BitrateWidget::_clear() {
@@ -2048,8 +1982,15 @@ void PlayListWidget::init(ScrollWidget* current) {
   _current = current;
 
 #ifndef DSP_LCD
-  _plItemHeight = playlistConf.widget.textsize * (CHARHEIGHT - 1)
-                + playlistConf.widget.textsize * 4;
+  {
+    /* Playlist font: playlistConf.widget.textsize alapján (0=Sans8, 1=Sans13, 2=Bold12 ...) */
+    const GFXfont* _plf = yoScrollFont(playlistConf.widget.textsize);
+    if (_plf)
+      _plItemHeight = yoFontHeight(_plf) + 4;
+    else
+      _plItemHeight = playlistConf.widget.textsize * (CHARHEIGHT - 1)
+                    + playlistConf.widget.textsize * 4;
+  }
 
   if (_plItemHeight < 10) _plItemHeight = 10;
 
@@ -2140,6 +2081,11 @@ void PlayListWidget::drawPlaylist(uint16_t currentItem) {
 
 void PlayListWidget::_drawMovingCursor(uint16_t currentItem) {
 
+  /* A _plcurrent ScrollWidget loop()-ja automatikusan újrarajzolna ha _doscroll=true.
+     Üres szöveggel biztosítjuk hogy _doscroll=false legyen → nincs auto-rajzolás.
+     Moving cursor módban a _printMoving kezeli a teljes vizuális megjelenítést. */
+  if (_current) _current->setText("");
+
   bool isLongPause = (millis() - _plLastDrawTime > 2000);
   _plLastDrawTime = millis();
 
@@ -2198,6 +2144,7 @@ void PlayListWidget::_printMoving(uint8_t pos, const char* item) {
 
   uint16_t fgColor = isSelected
         ? config.theme.plcurrent
+//        ? 0xFFE0   // sárga - teszt
         : config.theme.playlist[0];
 
   uint16_t bgColor = config.theme.background;
@@ -2207,10 +2154,16 @@ void PlayListWidget::_printMoving(uint8_t pos, const char* item) {
                bgColor);
 
   if (item && item[0] != '\0') {
+    const GFXfont* _plfont = yoScrollFont(playlistConf.widget.textsize);
+    uint8_t _plH = yoFontHeight(_plfont);
+    int16_t _plBase = yoBaselineOffset(_plfont);
+    dsp.setFont(_plfont);
+    dsp.setTextSize(1);
     dsp.setTextColor(fgColor, bgColor);
-    dsp.setTextSize(playlistConf.widget.textsize);
-    dsp.setCursor(TFT_FRAMEWDT, yPos + 4);
-    dsp.print(utf8To(item, true));
+    int16_t _plY = yPos + (_plItemHeight - _plH) / 2 + _plBase;
+    dsp.setCursor(TFT_FRAMEWDT, _plY);
+    yoPrintUtf8(dsp, item, fgColor, bgColor, _plfont);
+    dsp.setFont();
   }
 }
 
@@ -2234,30 +2187,35 @@ void PlayListWidget::_printScroll(uint8_t pos,
 
   dsp.setTextSize(playlistConf.widget.textsize);
 
-  if (pos == _plCurrentPos) {
-    _current->setText(item);
-  } else {
-
-    uint8_t dist =
-      abs((int)pos - (int)_plCurrentPos);
-
-    uint8_t plColor =
-      (dist > 5) ? 4 : (dist - 1);
-
-    dsp.setTextColor(
-      config.theme.playlist[plColor],
-      config.theme.background);
-
-    dsp.setCursor(TFT_FRAMEWDT,
-                  _plYStart + pos * _plItemHeight);
+  {
+    /* Minden sort ugyanolyan fonttal rajzolunk – aktuális = plcurrent szín */
+    uint16_t _psColor;
+    uint16_t _psBg;
+    if (pos == _plCurrentPos) {
+      _psColor = config.theme.plcurrent;
+      _psBg    = config.theme.plcurrentbg;
+    } else {
+      uint8_t dist   = abs((int)pos - (int)_plCurrentPos);
+      uint8_t plColor = (dist > 5) ? 4 : (dist - 1);
+      _psColor = config.theme.playlist[plColor];
+      _psBg    = config.theme.background;
+    }
 
     dsp.fillRect(0,
                  _plYStart + pos * _plItemHeight - 1,
                  dsp.width(),
                  _plItemHeight - 2,
-                 config.theme.background);
+                 _psBg);
 
-    dsp.print(utf8To(item, true));
+    const GFXfont* _plfont2 = yoScrollFont(playlistConf.widget.textsize);
+    int16_t _plBase2 = yoBaselineOffset(_plfont2);
+    uint8_t _plH2    = yoFontHeight(_plfont2);
+    dsp.setFont(_plfont2);
+    dsp.setTextSize(1);
+    int16_t _plY2 = _plYStart + pos * _plItemHeight + (_plItemHeight - _plH2) / 2 + _plBase2;
+    dsp.setCursor(TFT_FRAMEWDT, _plY2);
+    yoPrintUtf8(dsp, item, _psColor, _psBg, _plfont2);
+    dsp.setFont();
   }
 }
 
@@ -2318,24 +2276,25 @@ void DateWidget::update() {
 
   formatDateCustom(dateBuf, sizeof(dateBuf), ti, fmt);
 
-  uint8_t charWidth =
+  uint16_t desired;
   #ifndef DSP_LCD
-      (_config.textsize * CHARWIDTH);
+  if (_gfxFont)
+    desired = yoStringWidth(_gfxFont, dateBuf) + yoGlyphWidth(_gfxFont, ' ') * 2;
+  else {
+    uint8_t _cw = _config.textsize * CHARWIDTH;
+    auto utf8len = [](const char* s) -> size_t {
+      size_t len = 0;
+      for (const unsigned char* p = (const unsigned char*)s; *p; ++p)
+        if ( (*p & 0xC0) != 0x80 ) ++len;
+      return len;
+    };
+    desired = (uint16_t)(utf8len(dateBuf) * _cw) + _cw * 2;
+  }
   #else
-      1;
+  desired = 1;
   #endif
 
-  auto utf8len = [](const char* s) -> size_t {
-    size_t len = 0;
-    for (const unsigned char* p = (const unsigned char*)s; *p; ++p)
-      if ( (*p & 0xC0) != 0x80 ) ++len;
-    return len;
-  };
-
-  uint16_t desired = (uint16_t)(utf8len(dateBuf) * charWidth);
-  desired += charWidth * 2; 
-
-  uint16_t minW = charWidth * 6;
+  uint16_t minW = (_gfxFont ? yoGlyphWidth(_gfxFont, 'W') : (uint8_t)CHARWIDTH) * 6;
   uint16_t maxW = dsp.width() > 10 ? dsp.width() - 10 : dsp.width();
   if (desired < minW) desired = minW;
   if (desired > maxW) desired = maxW;
@@ -2343,7 +2302,7 @@ void DateWidget::update() {
 #if DSP_MODEL == DSP_ST7789_76
   setWindowWidth(dsp.width() / 2 + 23);
 #else
-  setWindowWidth(desired);
+  setWindowWidth(desired);  // vibrálásmentes: setWindowWidth csak reposition()-t hív ha méret nem változott
 #endif
 
   char line[192];
@@ -2353,13 +2312,17 @@ void DateWidget::update() {
   if (config.store.showNameday) {
     char nd[160] = {0};
     if (namedays_get_str((uint8_t)ti.tm_mon + 1, (uint8_t)ti.tm_mday, nd, sizeof(nd)) && nd[0]) {
-      strlcat(line, " \035 ", sizeof(line));
+      strlcat(line, " ¦ ", sizeof(line));
       strlcat(line, nd,    sizeof(line));
     }
   }
 #endif
 
-  setText(utf8To(line, false));
+  /* _gfxFont esetén utf8To() kihagyása - a DejaVu font UTF-8-at vár */
+  if (_gfxFont)
+    setText(line);
+  else
+    setText(utf8To(line, false));
 }
 
 /************************
@@ -2397,36 +2360,28 @@ void WeatherIconWidget::_draw(){
   // ha nincs hőmérséklet → nincs további rajz
   if (_temp[0] == '\0') return;
 
-  dsp.setFont();
-  dsp.setTextSize(_config.textsize);
+  const GFXfont* _wifont = &DejaVuSans11_HU;
+  uint16_t txtW = yoStringWidth(_wifont, _temp);
+  uint8_t  txtH = yoFontHeight(_wifont);
+  int16_t  base = yoBaselineOffset(_wifont);
+  dsp.setFont(_wifont);
+  dsp.setTextSize(1);
   dsp.setTextColor(config.theme.dow, _bgcolor);
 
-  uint16_t txtW = strlen(_temp) * CHARWIDTH * _config.textsize;
-  uint16_t txtH = CHARHEIGHT * _config.textsize;
-
-  // 🔻 **Layout logika**
-  bool vertical = (config.store.vuLayout == 0);  
-  // default layout = vertical (egymás alatt)  
-  // többi layout = side-by-side
+  bool vertical = (config.store.vuLayout == 0);
 
   if (vertical) {
-      // ===========================
-      // ikon fölé szöveg (Default)
-      // ===========================
       int16_t tx = _config.left + (areaW - txtW) / 2;
-      int16_t ty = _config.top - (txtH-2);
+      int16_t ty = _config.top - txtH + base;
       dsp.setCursor(tx, ty);
-      dsp.print(_temp);
+      yoPrintUtf8(dsp, _temp, config.theme.dow, _bgcolor, _wifont);
   } else {
-      // ===========================
-      // ikon mellé szöveg (StreamLine, BoomBox, Studio)
-      // ===========================
       int16_t tx = iconX + w + 6;
-      int16_t ty = iconY + (h - txtH) / 2;
-
+      int16_t ty = iconY + (h - txtH) / 2 + base;
       dsp.setCursor(tx, ty);
-      dsp.print(_temp);
+      yoPrintUtf8(dsp, _temp, config.theme.dow, _bgcolor, _wifont);
   }
+  dsp.setFont();
 }
 
 void WeatherIconWidget::setIcon(const char* code) {
@@ -2451,9 +2406,9 @@ void WeatherIconWidget::setIcon(const char* code) {
 
 void WeatherIconWidget::setTemp(float tempC) {
 #ifdef IMPERIALUNIT
-  snprintf(_temp, sizeof(_temp), "%.0f\011F", tempC);
+  snprintf(_temp, sizeof(_temp), "%.0f°F", tempC);
 #else
-  snprintf(_temp, sizeof(_temp), "%.0f\011C", tempC);
+  snprintf(_temp, sizeof(_temp), "%.0f°C", tempC);
 #endif
 
   _hasTemp = true;
@@ -2462,6 +2417,136 @@ void WeatherIconWidget::setTemp(float tempC) {
     _clear();
     _draw();
   }
+}
+
+
+/**************************
+      STATIONNUM WIDGET
+ **************************/
+void StationNumWidget::init(StationNumConfig conf, uint16_t fgcolor, uint16_t bgcolor) {
+    Widget::init(conf.widget, fgcolor, bgcolor);
+    _dimension = conf.dimension;
+    _num = 0;
+}
+
+void StationNumWidget::setNum(uint16_t num) {
+    _num = num;
+    _draw();
+}
+
+void StationNumWidget::_draw() {
+    _clear();
+    if (!_active || _num == 0) return;
+
+    uint16_t boxW = _dimension;      // szélesség = dimension
+    uint16_t boxH = _dimension / 2;  // magasság  = dimension/2
+
+    // Üres keret (outline), mint a BitrateWidget bal fele
+    dsp.drawRect(_config.left, _config.top, boxW, boxH, _fgcolor);
+
+    const GFXfont* _fnt = yoScrollFont(_config.textsize);
+    uint8_t  _fntH    = yoFontHeight(_fnt);
+    int16_t  _baseOff = yoBaselineOffset(_fnt);
+    dsp.setFont(_fnt);
+    dsp.setTextSize(1);
+    dsp.setTextColor(_fgcolor, _bgcolor);
+
+    char buf[6];
+    snprintf(buf, sizeof(buf), "%d", _num);
+    uint16_t textW = yoStringWidth(_fnt, buf);
+    uint16_t cx    = _config.left + boxW / 2;
+
+    dsp.setCursor(cx - textW / 2,
+                  _config.top + boxH / 2 - _fntH / 2 + _baseOff);
+    yoPrintUtf8(dsp, buf, _fgcolor, _bgcolor, _fnt);
+    dsp.setFont();
+}
+
+void StationNumWidget::_clear() {
+    dsp.fillRect(_config.left, _config.top,
+                 _dimension, _dimension / 2,
+                 _bgcolor);
+}
+
+/**************************
+      PLAYMODE WIDGET
+ **************************/
+void PlayModeWidget::init(PlayModeConfig conf, uint16_t fgcolor, uint16_t bgcolor) {
+    Widget::init(conf.widget, fgcolor, bgcolor);
+    _dimension = conf.dimension;
+    _mode = 255;  // ismeretlen
+}
+
+void PlayModeWidget::setMode(uint8_t mode) {
+    _mode = mode;
+    _draw();
+}
+
+void PlayModeWidget::_draw() {
+    _clear();
+    if (!_active) return;
+
+    uint16_t boxW = _dimension;      // szélesség = dimension
+    uint16_t boxH = _dimension / 2;  // magasság  = dimension/2
+
+    // Teli háttér (filled), mint a BitrateWidget jobb (codec) fele
+    dsp.fillRect(_config.left, _config.top, boxW, boxH, _fgcolor);
+
+    const GFXfont* _fnt = yoScrollFont(_config.textsize);
+    uint8_t  _fntH    = yoFontHeight(_fnt);
+    int16_t  _baseOff = yoBaselineOffset(_fnt);
+    dsp.setFont(_fnt);
+    dsp.setTextSize(1);
+
+    const char* label = "WEB";
+    if (_mode == 1)      label = "SD";
+    else if (_mode == 2) label = "DLNA";
+
+    uint16_t textW = yoStringWidth(_fnt, label);
+    uint16_t cx    = _config.left + boxW / 2;
+
+    dsp.setCursor(cx - textW / 2,
+                  _config.top + boxH / 2 - _fntH / 2 + _baseOff);
+    yoPrintUtf8(dsp, label, _bgcolor, _fgcolor, _fnt);
+    dsp.setFont();
+}
+
+void PlayModeWidget::_clear() {
+    dsp.fillRect(_config.left, _config.top,
+                 _dimension, _dimension / 2,
+                 _bgcolor);
+}
+
+// ─── StatusWidget ───────────────────────────────────────────────────────────
+void StatusWidget::init(StatusWidgetConfig conf, const char* label,
+                        uint16_t activecolor, uint16_t inactivecolor) {
+    Widget::init(conf.widget, activecolor, inactivecolor);
+    _boxW  = conf.width;
+    _boxH  = conf.height;
+    _label = label;
+}
+
+void StatusWidget::_draw() {
+    uint16_t boxColor  = _active ? _fgcolor : _bgcolor;
+    uint16_t textColor = _active ? _bgcolor : _fgcolor;
+    dsp.fillRect(_config.left, _config.top, _boxW, _boxH, boxColor);
+
+    const GFXfont* fnt     = yoScrollFont(_config.textsize);
+    uint8_t        fntH    = yoFontHeight(fnt);
+    int16_t        baseOff = yoBaselineOffset(fnt);
+    dsp.setFont(fnt);
+    dsp.setTextSize(1);
+
+    uint16_t textW = yoStringWidth(fnt, _label);
+    uint16_t cx    = _config.left + _boxW / 2;
+    dsp.setCursor(cx - textW / 2,
+                  _config.top + _boxH / 2 - fntH / 2 + baseOff);
+    yoPrintUtf8(dsp, _label, textColor, boxColor, fnt);
+    dsp.setFont();
+}
+
+void StatusWidget::_clear() {
+    dsp.fillRect(_config.left, _config.top, _boxW, _boxH, _bgcolor);
 }
 
 #endif // #if DSP_MODEL!=DSP_DUMMY

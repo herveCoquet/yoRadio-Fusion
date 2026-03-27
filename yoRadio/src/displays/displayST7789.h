@@ -7,7 +7,7 @@
 
 #if DSP_MODEL==DSP_ST7789_76
   #include "fonts/bootlogo_cust64.h" //bootlogo62x40.h
-  #include "fonts/dsfont35.h"
+  #include "fonts/dsfont19.h"
 #elif DSP_MODEL==DSP_ST7789_170
   #include "fonts/bootlogo_cust128.h"  //bootlogo99x64.h
   #include "fonts/dsfont35.h"

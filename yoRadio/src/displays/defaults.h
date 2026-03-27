@@ -169,17 +169,17 @@
   #define VU_DEF_GAP_DEF  2
   #define VU_DEF_FADE_DEF 3
   
-  #define VU_DEF_HGT_STR  35
+  #define VU_DEF_HGT_STR  23
   #define VU_DEF_BARS_STR 20
   #define VU_DEF_GAP_STR  3
   #define VU_DEF_FADE_STR 5
   
-  #define VU_DEF_HGT_BBX  35
+  #define VU_DEF_HGT_BBX  23
   #define VU_DEF_BARS_BBX 20
   #define VU_DEF_GAP_BBX  3
   #define VU_DEF_FADE_BBX 5
   
-  #define VU_DEF_HGT_STD  15
+  #define VU_DEF_HGT_STD  10
   #define VU_DEF_BARS_STD 20
   #define VU_DEF_GAP_STD  3
   #define VU_DEF_FADE_STD 7

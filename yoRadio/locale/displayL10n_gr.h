@@ -117,21 +117,21 @@ const char        apSettFmt[]    PROGMEM = "ΣΕΛΙΔΑ ΡΥΘΜΙΣΕΩΝ: HTT
 
 #if (DSP_MODEL == DSP_ILI9341) || (DSP_MODEL == DSP_ST7735) || (DSP_MODEL == DSP_ST7789) || (DSP_MODEL == DSP_ST7789_76)
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH %.1f km/h";
+  "%d hPa · %d%% RH · %.1f km/h";
 #elif (DSP_MODEL == DSP_ST7789_240)
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa %d%% RH";
+  "%d hPa · %d%% RH";
 #else
 const char weatherFmtShort[] PROGMEM =
-  "%d hPa \007 %d%% RH \007 %.1f km/h [%s]";
+  "%d hPa · %d%% RH · %.1f km/h [%s]";
 #endif
 
 #if EXT_WEATHER
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 αίσθηση θερμοκρασίας: %.1f\011C \007 πίεση: %d hPa \007 υγρασία: %d%% \007 άνεμος: %.1f km/h [%s]";
+  "%s, %.1f°C · αίσθηση θερμοκρασίας: %.1f\011C · πίεση: %d hPa · υγρασία: %d%% · άνεμος: %.1f km/h [%s]";
 #else
 const char weatherFmtLong[] PROGMEM =
-  "%s, %.1f\011C \007 Πίεση: %d hPa \007 Υγρασία: %d%%";
+  "%s, %.1f°C · Πίεση: %d hPa · Υγρασία: %d%%";
 #endif
 
 static inline const char* getWeatherFmt() {

@@ -28,6 +28,10 @@ class  psFrameBuffer : public Adafruit_GFX {
       freeBuffer();
       _createBuffer();
     }
+    // Csak a kijelzési pozíciót frissíti (buffer NEM allokálódik újra).
+    void reposition(int16_t l, int16_t t) {
+      _ll = l; _tt = t;
+    }
     void drawPixel( int16_t x, int16_t y, uint16_t color){
       if (x < 0 || x >= _ww || y < 0 || y >= _hh) return;
       if(!buffer) return;
