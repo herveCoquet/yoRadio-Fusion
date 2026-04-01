@@ -417,6 +417,8 @@ Offline: https://github.com/andrasdaradici/YoRadio-Theme-Editor/releases
 
  • Modify the LED strip plugin so that the VU meter moves even on shorter strips
  
+ • FT6X36 touch driver fix
+ 
    
 ## v0.6.6 – 2026-03-27
 
